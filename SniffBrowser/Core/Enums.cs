@@ -156,15 +156,16 @@
 
     public enum HighGuid
     {
-        Item = 0x4000,                       // blizz 4000
-        Container = 0x4000,                       // blizz 4000
-        Player = 0x0000,                       // blizz 0000
-        GameObject = 0xF110,                       // blizz F110
-        Transport = 0xF120,                       // blizz F120 (for GAMEOBJECT_TYPE_TRANSPORT)
-        Creature = 0xF130,                       // blizz F130
-        Pet = 0xF140,                       // blizz F140
-        DynamicObject = 0xF100,                       // blizz F100
-        Corpse = 0xF101,                       // blizz F100
-        MoTransport = 0x1FC0,                       // blizz 1FC0 (for GAMEOBJECT_TYPE_MO_TRANSPORT)
+        ITEM = 0x4000,                       // blizz 4000
+        CONTAINER = 0x4000,                       // blizz 4000
+        PLAYER = 0x0000,                       // blizz 0000
+        GAMEOBJECT = 0xF110,                       // blizz F110
+        TRANSPORT = 0xF120,                       // blizz F120 (for GAMEOBJECT_TYPE_TRANSPORT)
+        UNIT = 0xF130,                       // blizz F130
+        PET = 0xF140,                       // blizz F140
+        VEHICLE = 0xF150,                       // blizz F15/F55
+        DYNAMICOBJECT = 0xF100,                       // blizz F100
+        CORPSE = 0xF101,                       // blizz F100
+        MO_TRANSPORT = 0x1FC0,                       // blizz 1FC0 (for GAMEOBJECT_TYPE_MO_TRANSPORT)
     };
 }

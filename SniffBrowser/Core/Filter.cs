@@ -1,7 +1,5 @@
-﻿using System.Data;
-using System.Linq;
+﻿using System.Linq;
 using System.Collections.Generic;
-using System;
 
 namespace SniffBrowser.Core
 {
@@ -21,9 +19,7 @@ namespace SniffBrowser.Core
         public ObjectGuid Guid = ObjectGuid.Empty;
         public Dictionary<SniffedEventType, SniffedEventTypeFilterEntry> EventTypeFilter { get; protected set; }
         public bool Enabled { get; set; } = false;
-
-        public bool OnlyObjectType = false;
-        public ObjectType ObjectType = ObjectType.Object;
+        public ObjectTypeFilter ObjectTypeFilter = ObjectTypeFilter.Any;
 
         public Filter() 
         {
@@ -72,7 +68,8 @@ namespace SniffBrowser.Core
                 if (sEvent.SourceGuid != Guid && sEvent.TargetGuid != Guid)
                     return false;
             }
-            else if (OnlyObjectType) // Special 'Any' filters based on ObjectType.
+
+            if (ObjectTypeFilter != ObjectTypeFilter.Any)
             {
                 var sourceEmpty = sEvent.SourceGuid.IsEmpty;
                 var targetEmpty = sEvent.TargetGuid.IsEmpty;
@@ -83,9 +80,9 @@ namespace SniffBrowser.Core
                 bool matchSource = !sourceEmpty;
                 bool matchTarget = !targetEmpty;
 
-                if (matchSource && sEvent.SourceGuid.GetObjectType() != ObjectType)
+                if (matchSource && !sEvent.SourceGuid.IsGuidFitForObjectTypeFilter(ObjectTypeFilter))
                     matchSource = false;
-                if (matchTarget && sEvent.TargetGuid.GetObjectType() != ObjectType)
+                if (matchTarget && !sEvent.TargetGuid.IsGuidFitForObjectTypeFilter(ObjectTypeFilter))
                     matchTarget = false;
                 if (!matchSource && !matchTarget)
                     return false;

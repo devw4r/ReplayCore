@@ -406,8 +406,8 @@ namespace SniffBrowser
                     if (!(o is Filter filter))
                         return null;
 
-                    if (filter.OnlyObjectType)
-                        return filter.ObjectType;
+                    if (filter.ObjectTypeFilter != ObjectTypeFilter.Any)
+                        return filter.ObjectTypeFilter;
 
                     if (filter.Guid.IsEmpty)
                         return "Any";
@@ -689,7 +689,6 @@ namespace SniffBrowser
             {
                 var payloadSize = packet.ReadUInt16(); // Payload Size.
                 GUIOpcode opcode = (GUIOpcode)packet.ReadUInt8();
-
                 switch (opcode)
                 {
                     case GUIOpcode.SMSG_EVENT_TYPE_LIST:

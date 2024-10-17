@@ -25,7 +25,7 @@ namespace SniffBrowser.Core
             var result = new SniffedEvent
             {
                 UUID = packet.ReadUInt32(),
-                EventType = (SniffedEventType)packet.ReadUInt32(),
+                EventType = (SniffedEventType)packet.ReadUInt8(),
                 EventTime = packet.ReadUInt64(),
             };
 

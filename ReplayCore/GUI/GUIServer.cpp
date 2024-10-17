@@ -282,11 +282,10 @@ void GUIServer::SendEventDataList(std::vector<std::pair<uint64, std::shared_ptr<
         {
             std::pair<uint64, std::shared_ptr<SniffedEvent>> const& itr = eventsList[i];
             std::string shortDescription = itr.second->GetShortDescription();
-            std::string longDescription = itr.second->GetLongDescription();
 
             uint32 neededSpace =
                 sizeof(uint32) + // unique identifier
-                sizeof(uint32) + // event type
+                sizeof(uint8) + // event type
                 sizeof(uint64) + // unit time ms
                 sizeof(uint64) + // source guid
                 sizeof(uint64) + // target guid
@@ -296,7 +295,7 @@ void GUIServer::SendEventDataList(std::vector<std::pair<uint64, std::shared_ptr<
                 break;
 
             buffer << uint32(itr.second->m_uniqueIdentifier);
-            buffer << uint32(itr.second->GetType());
+            buffer << uint8(itr.second->GetType());
             buffer << uint64(itr.first);
             buffer << uint64(itr.second->GetSourceGuid().GetRawValue());
             buffer << uint64(itr.second->GetTargetGuid().GetRawValue());

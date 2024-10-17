@@ -25,20 +25,55 @@ namespace SniffBrowser.Core
 
         // ObjectGuid
 
+        public static bool IsCreature(this ObjectGuid oGuid) => oGuid.GetHighType() == HighGuid.UNIT;
+        public static bool IsPet(this ObjectGuid oGuid) => oGuid.GetHighType() == HighGuid.PET;
+        public static bool IsCreatureOrPet(this ObjectGuid oGuid) => oGuid.IsCreature() || oGuid.IsPet();
+        public static bool IsPlayer(this ObjectGuid oGuid) => !oGuid.IsEmpty && oGuid.GetHighType() == HighGuid.PLAYER;
+        public static bool IsUnit(this ObjectGuid oGuid) => oGuid.IsCreatureOrPet() || oGuid.IsPlayer();
+        public static bool IsItem(this ObjectGuid oGuid) => oGuid.GetHighType() == HighGuid.ITEM;
+        public static bool IsGameObject(this ObjectGuid oGuid) => oGuid.GetHighType() == HighGuid.GAMEOBJECT;
+        public static bool IsDynamicObject(this ObjectGuid oGuid) => oGuid.GetHighType() == HighGuid.DYNAMICOBJECT;
+        public static bool IsCorpse(this ObjectGuid oGuid) => oGuid.GetHighType() == HighGuid.CORPSE;
+        public static bool IsTransport(this ObjectGuid oGuid) => oGuid.GetHighType() == HighGuid.TRANSPORT;
+        public static bool IsMOTransport(this ObjectGuid oGuid) => oGuid.GetHighType() == HighGuid.MO_TRANSPORT;
+
+        public static bool IsGuidFitForObjectTypeFilter(this ObjectGuid guid, ObjectTypeFilter filter)
+        {
+            switch (filter)
+            {
+                case ObjectTypeFilter.GameObject:
+                    return guid.IsGameObject();
+                case ObjectTypeFilter.Transport:
+                    if (!guid.IsGameObject() && !guid.IsTransport() && !guid.IsMOTransport())
+                        return false;
+                    return true;
+                case ObjectTypeFilter.Unit:
+                    return guid.IsUnit();
+                case ObjectTypeFilter.Creature:
+                    return guid.IsCreature();
+                case ObjectTypeFilter.Pet:
+                    return guid.IsPet();
+                case ObjectTypeFilter.Player:
+                    return guid.IsPlayer();
+            }
+
+            return true;
+        }
+
         public static bool HasEntry(this ObjectGuid oGuid)
         {
             switch (oGuid.GetHighType())
             {
-                case HighGuid.Item:
-                case HighGuid.Player:
-                case HighGuid.DynamicObject:
-                case HighGuid.Corpse:
-                case HighGuid.MoTransport:
+                case HighGuid.ITEM:
+                case HighGuid.PLAYER:
+                case HighGuid.DYNAMICOBJECT:
+                case HighGuid.CORPSE:
+                case HighGuid.MO_TRANSPORT:
                     return false;
-                case HighGuid.GameObject:
-                case HighGuid.Transport:
-                case HighGuid.Creature:
-                case HighGuid.Pet:
+                case HighGuid.GAMEOBJECT:
+                case HighGuid.TRANSPORT:
+                case HighGuid.UNIT:
+                case HighGuid.PET:
                 default:
                     return true;
             }
@@ -67,18 +102,18 @@ namespace SniffBrowser.Core
         {
             switch (oGuid.GetHighType())
             {
-                case HighGuid.Player:
+                case HighGuid.PLAYER:
                     return ObjectType.Player;
-                case HighGuid.DynamicObject:
+                case HighGuid.DYNAMICOBJECT:
                     return ObjectType.DynamicObject;
-                case HighGuid.Item:
+                case HighGuid.ITEM:
                     return ObjectType.Item;
-                case HighGuid.GameObject:
-                case HighGuid.Transport:
-                case HighGuid.MoTransport:
+                case HighGuid.GAMEOBJECT:
+                case HighGuid.TRANSPORT:
+                case HighGuid.MO_TRANSPORT:
                     return ObjectType.GameObject;
-                case HighGuid.Creature:
-                case HighGuid.Pet:
+                case HighGuid.UNIT:
+                case HighGuid.PET:
                     return ObjectType.Creature;
                 default:
                     return ObjectType.Object;
@@ -173,11 +208,11 @@ namespace SniffBrowser.Core
 
             var objectHighType = objectGuid.GetHighType();
             var eventType = (SniffedEventType)e.EventType;
-            if (objectHighType == HighGuid.Transport)
+            if (objectHighType == HighGuid.TRANSPORT)
                 return "Transport";
 
             var typeName = objectHighType.ToString();
-            if (objectHighType == HighGuid.DynamicObject)
+            if (objectHighType == HighGuid.DYNAMICOBJECT)
                 typeName = "DynObject";
 
             switch (eventType)

@@ -30,7 +30,7 @@
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ObjectSelectionDlg));
             this.availableObjectsListView = new BrightIdeasSoftware.FastObjectListView();
-            this.button1 = new System.Windows.Forms.Button();
+            this.BtnOk = new System.Windows.Forms.Button();
             this.PnlBottom = new System.Windows.Forms.Panel();
             this.TxtFilter = new System.Windows.Forms.TextBox();
             this.PBoxFilter = new System.Windows.Forms.PictureBox();
@@ -38,6 +38,7 @@
             this.ChkBoxByObjectType = new System.Windows.Forms.CheckBox();
             this.CBoxObjectTypes = new System.Windows.Forms.ComboBox();
             this.label1 = new System.Windows.Forms.Label();
+            this.BtnCancel = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.availableObjectsListView)).BeginInit();
             this.PnlBottom.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.PBoxFilter)).BeginInit();
@@ -59,21 +60,23 @@
             this.availableObjectsListView.UseCompatibleStateImageBehavior = false;
             this.availableObjectsListView.View = System.Windows.Forms.View.Details;
             this.availableObjectsListView.VirtualMode = true;
+            this.availableObjectsListView.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.AvailableObjectsListView_MouseDoubleClick);
             // 
-            // button1
+            // BtnOk
             // 
-            this.button1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.button1.Location = new System.Drawing.Point(523, 4);
-            this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(75, 23);
-            this.button1.TabIndex = 1;
-            this.button1.Text = "Ok";
-            this.button1.UseVisualStyleBackColor = true;
-            this.button1.Click += new System.EventHandler(this.Button1_Click);
+            this.BtnOk.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.BtnOk.Location = new System.Drawing.Point(442, 6);
+            this.BtnOk.Name = "BtnOk";
+            this.BtnOk.Size = new System.Drawing.Size(75, 23);
+            this.BtnOk.TabIndex = 1;
+            this.BtnOk.Text = "Ok";
+            this.BtnOk.UseVisualStyleBackColor = true;
+            this.BtnOk.Click += new System.EventHandler(this.BtnOk_Click);
             // 
             // PnlBottom
             // 
-            this.PnlBottom.Controls.Add(this.button1);
+            this.PnlBottom.Controls.Add(this.BtnCancel);
+            this.PnlBottom.Controls.Add(this.BtnOk);
             this.PnlBottom.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.PnlBottom.Location = new System.Drawing.Point(0, 358);
             this.PnlBottom.Name = "PnlBottom";
@@ -147,6 +150,17 @@
             this.label1.TabIndex = 33;
             this.label1.Text = "* (Source or Target)";
             // 
+            // BtnCancel
+            // 
+            this.BtnCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.BtnCancel.Location = new System.Drawing.Point(523, 6);
+            this.BtnCancel.Name = "BtnCancel";
+            this.BtnCancel.Size = new System.Drawing.Size(75, 23);
+            this.BtnCancel.TabIndex = 2;
+            this.BtnCancel.Text = "Cancel";
+            this.BtnCancel.UseVisualStyleBackColor = true;
+            this.BtnCancel.Click += new System.EventHandler(this.BtnCancel_Click);
+            // 
             // ObjectSelectionDlg
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -174,7 +188,7 @@
         #endregion
 
         private BrightIdeasSoftware.FastObjectListView availableObjectsListView;
-        private System.Windows.Forms.Button button1;
+        private System.Windows.Forms.Button BtnOk;
         private System.Windows.Forms.Panel PnlBottom;
         private System.Windows.Forms.TextBox TxtFilter;
         private System.Windows.Forms.PictureBox PBoxFilter;
@@ -182,5 +196,6 @@
         private System.Windows.Forms.CheckBox ChkBoxByObjectType;
         private System.Windows.Forms.ComboBox CBoxObjectTypes;
         private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.Button BtnCancel;
     }
 }

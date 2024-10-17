@@ -20,7 +20,7 @@ namespace SniffBrowser.Controls
             Filter = filter;
             InitializeComponent();
 
-            ChkBoxByObjectType.Checked = filter.OnlyObjectType;
+            ChkBoxByObjectType.Checked = filter.ObjectTypeFilter != ObjectTypeFilter.Any;
 
             OLVColumn ObjectNameCol = new OLVColumn("Name", "Name")
             {
@@ -105,41 +105,19 @@ namespace SniffBrowser.Controls
             availableObjectsListView.SetObjects(DataHolder.ObjectGuidMap.Values);
             availableObjectsListView.AutoResizeColumns();
 
-            CBoxObjectTypes.DataSource = EnumUtils<ObjectType>.Values;            
+            CBoxObjectTypes.DataSource = EnumUtils<ObjectTypeFilter>.Values;            
 
             if (ChkBoxByObjectType.Checked)
             {
                 PnlList.Enabled = false;
                 CBoxObjectTypes.Enabled = true;
-                CBoxObjectTypes.SelectedIndex = (int)filter.ObjectType;
+                CBoxObjectTypes.SelectedIndex = (int)filter.ObjectTypeFilter;
             }
             else
             {
                 CBoxObjectTypes.Enabled = false;
                 RefreshFiltering();
             }
-        }
-
-        private void Button1_Click(object sender, EventArgs e)
-        {
-            if (ChkBoxByObjectType.Checked)
-            {
-                if (CBoxObjectTypes.SelectedValue is ObjectType oType)
-                {
-                    Filter.Guid = ObjectGuid.Empty;
-                    Filter.ObjectType = oType;
-                }       
-            }
-            else
-            {
-                if (availableObjectsListView.SelectedObject is ObjectGuid oGuid)
-                    Filter.Guid = oGuid;
-            }
-
-            Filter.OnlyObjectType = ChkBoxByObjectType.Checked;
-
-            DialogResult = DialogResult.OK;
-            Close();
         }
 
         private void RefreshFiltering()
@@ -180,6 +158,51 @@ namespace SniffBrowser.Controls
         {
             CBoxObjectTypes.Enabled = ChkBoxByObjectType.Checked;
             PnlList.Enabled = !ChkBoxByObjectType.Checked;
+        }
+
+        private void AvailableObjectsListView_MouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            if (!PnlList.Enabled)
+                return;
+
+            if (availableObjectsListView.SelectedObject is ObjectGuid oGuid)
+            {
+                Filter.Guid = oGuid;
+                Filter.ObjectTypeFilter = ObjectTypeFilter.Any;
+                DialogResult = DialogResult.OK;
+                Close();
+            }
+        }
+
+        private void BtnOk_Click(object sender, EventArgs e)
+        {
+            if (ChkBoxByObjectType.Checked)
+            {
+                Filter.Guid = ObjectGuid.Empty;
+                Filter.ObjectTypeFilter = (ObjectTypeFilter)CBoxObjectTypes.SelectedValue;
+            }
+            else
+            {
+                if (availableObjectsListView.SelectedObject is ObjectGuid oGuid)
+                {
+                    Filter.Guid = oGuid;
+                    Filter.ObjectTypeFilter = ObjectTypeFilter.Any;
+                }
+                else
+                {
+                    MessageBox.Show("Missing object selection.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+            }
+
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+
+        private void BtnCancel_Click(object sender, EventArgs e)
+        {
+            this.DialogResult = DialogResult.Cancel;
+            this.Close();
         }
     }
 }
