@@ -36,10 +36,13 @@ private:
     void HandlePacket(ByteBuffer& buffer);
     void SendEventTypesList();
     void HandleRequestEventData(ByteBuffer& buffer);
+    void HandleRequestEventDescription(ByteBuffer& buffer);
     void SendEventDataList(std::vector<std::pair<uint64, std::shared_ptr<SniffedEvent>>> const& eventsList);
+    void SendEventDescription(uint32 sniffedEventId, std::string const& description);
     void HandleChatCommand(ByteBuffer& buffer);
     void HandleGoToGuid(ByteBuffer& buffer);
     void HandleMakeScript(ByteBuffer& buffer);
+    void SendPacket(ByteBuffer& buffer, std::string opcode);
 };
 
 #define sGUI GUIServer::Instance()

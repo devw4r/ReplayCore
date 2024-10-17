@@ -420,6 +420,7 @@ public:
 
     std::shared_ptr<SniffedEvent> GetFirstEventForTarget(ObjectGuid guid, SniffedEventType eventType);
     void GetEventsListForTarget(ObjectGuid guid, std::string eventName, std::vector<std::pair<uint64, SniffedEventType>>& eventsList);
+    void ReplayMgr::GetEventDescription(uint32 sniffedEventId, std::string& description);
     void GetEventsListForTargets(uint32 startTime, uint32 endTime, std::vector<ObjectFilterEntry> const& objectFilters, std::vector<std::pair<uint64, std::shared_ptr<SniffedEvent>>>& eventsList);
     void GetEventsListFromIdentifiers(std::set<uint32> eventIdentifiers, std::vector<std::pair<uint64, std::shared_ptr<SniffedEvent>>>& eventsList);
 
@@ -436,6 +437,7 @@ public:
     bool IsInitialized() { return m_initialized; }
     void Uninitialize();
 
+    uint32 GetSniffedEventsCount() { return (m_eventsMapBackup.empty() ? 0 : (uint32)m_eventsMapBackup.size()); }
     uint32 GetCurrentSniffTime() { return m_currentSniffTime; }
     uint64 GetCurrentSniffTimeMs() { return m_currentSniffTimeMs; }
     uint32 GetStartTimeSniff() { return m_startTimeSniff; }

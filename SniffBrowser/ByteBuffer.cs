@@ -15,10 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-using SniffBrowser;
+
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using SniffBrowser.Core;
 
 namespace SniffBrowser
 {
@@ -36,11 +38,8 @@ namespace SniffBrowser
 
         public void Dispose()
         {
-            if (writeStream != null)
-                writeStream.Dispose();
-
-            if (readStream != null)
-                readStream.Dispose();
+            writeStream?.Dispose();
+            readStream?.Dispose();
         }
 
         #region Read Methods
@@ -104,14 +103,13 @@ namespace SniffBrowser
             return readStream.ReadDouble();
         }
 
+        private static char TmpEndChar = Convert.ToChar(Encoding.UTF8.GetString(new byte[] { 0 }));
         public string ReadCString()
         {
             ResetBitPos();
             StringBuilder tmpString = new StringBuilder();
             char tmpChar = readStream.ReadChar();
-            char tmpEndChar = Convert.ToChar(Encoding.UTF8.GetString(new byte[] { 0 }));
-
-            while (tmpChar != tmpEndChar)
+            while (tmpChar != TmpEndChar)
             {
                 tmpString.Append(tmpChar);
                 tmpChar = readStream.ReadChar();

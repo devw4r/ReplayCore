@@ -31,6 +31,9 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>SniffBrowserIco.ico</ApplicationIcon>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -45,6 +48,27 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ByteBuffer.cs" />
+    <Compile Include="Controls\ObjectSelectionDlg.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Controls\ObjectSelectionDlg.Designer.cs">
+      <DependentUpon>ObjectSelectionDlg.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Controls\SelectionRangeSlider.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Core\Colors.cs" />
+    <Compile Include="Core\DataHolder.cs" />
+    <Compile Include="Core\Enums.cs" />
+    <Compile Include="Core\Extensions.cs" />
+    <Compile Include="Core\Filter.cs" />
+    <Compile Include="Core\StringCompressor.cs" />
+    <Compile Include="Core\TryConnectEventArgs.cs" />
+    <Compile Include="Database\StringStorage.cs" />
+    <Compile Include="Events\SMSG_EVENT_DATA_LIST.cs" />
+    <Compile Include="Events\SMSG_EVENT_DESCRIPTION.cs" />
+    <Compile Include="Events\SMSG_EVENT_TYPE_LIST.cs" />
+    <Compile Include="Core\EventTypeEntry.cs" />
     <Compile Include="FormConnectionDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -63,13 +87,18 @@
     <Compile Include="FormSniffBrowser.Designer.cs">
       <DependentUpon>FormSniffBrowser.cs</DependentUpon>
     </Compile>
-    <Compile Include="ObjectGuid.cs" />
+    <Compile Include="Core\ObjectGuid.cs" />
+    <Compile Include="Network\NetworkClient.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Utility.cs" />
-    <Compile Include="Vector2.cs" />
-    <Compile Include="Vector3.cs" />
-    <Compile Include="Vector4.cs" />
+    <Compile Include="Core\SniffedEvent.cs" />
+    <Compile Include="Core\Utility.cs" />
+    <Compile Include="Core\Vector2.cs" />
+    <Compile Include="Core\Vector3.cs" />
+    <Compile Include="Core\Vector4.cs" />
+    <EmbeddedResource Include="Controls\ObjectSelectionDlg.resx">
+      <DependentUpon>ObjectSelectionDlg.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="FormConnectionDialog.resx">
       <DependentUpon>FormConnectionDialog.cs</DependentUpon>
     </EmbeddedResource>
@@ -98,9 +127,6 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\Image1.png" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\cinematic_begin.png" />
@@ -320,6 +346,73 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\placeholder.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\LoadingSniff.gif" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\play_video_icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\pause_icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\reset_time_icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\skip_time_arrow_icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\28401_go_jump_icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\blue_jump_arrow_icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\9022941_tag_simple_duotone_icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\jump_blue_icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\jump_orange_icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\jump_green_icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\location_map_icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\script_icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\waypoints_icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\path_line_icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\8674484_ic_fluent_checkbox_checked_regular_icon.png" />
+    <None Include="Resources\8673002_ic_fluent_checkbox_unchecked_filled_icon.png" />
+    <None Include="Resources\216263_input_checked_icon.png" />
+    <None Include="Resources\1891033_add_append_blue_cercle_create_icon.png" />
+    <None Include="Resources\299068_add_sign_icon.png" />
+    <None Include="Resources\8664938_trash_can_delete_remove_icon.png" />
+    <None Include="Resources\12595_bulb_idea_light_icon.png" />
+    <None Include="Resources\8666693_search_icon.png" />
+    <None Include="Resources\299045_sign_error_icon.png" />
+    <Content Include="SniffBrowserIco.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="ObjectListView\ObjectListView2012.csproj">
+      <Project>{18feda0c-d147-4286-b39a-01204808106a}</Project>
+      <Name>ObjectListView2012</Name>
+    </ProjectReference>
+    <ProjectReference Include="SharpZipLib\ICSharpCode.SharpZLib.csproj">
+      <Project>{0e7413ff-eb9e-4714-acf2-be3a6a7b2ffd}</Project>
+      <Name>ICSharpCode.SharpZLib</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

@@ -5,3 +5,14 @@ SniffBrowser/.vs
 SniffBrowser/obj
 zlib/Release
 ReplayCore.VC.db
+/Debug
+/Release
+/packages
+/SniffBrowser/packages
+/zlib/Debug
+zlib/zlib.vcxproj.user
+UpgradeLog.htm
+/SniffBrowser/SharpZipLib/obj
+/SniffBrowser/ObjectListView/obj
+/SniffBrowser/ObjectListView/bin
+/SniffBrowser/bin

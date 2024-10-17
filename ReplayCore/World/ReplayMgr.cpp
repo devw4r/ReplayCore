@@ -1467,6 +1467,18 @@ void ReplayMgr::GetEventsListForTarget(ObjectGuid guid, std::string eventName, s
     }
 }
 
+void ReplayMgr::GetEventDescription(uint32 sniffedEventId, std::string& description)
+{
+    for (const auto& itr : m_eventsMapBackup)
+    {
+        if (itr.second->m_uniqueIdentifier == sniffedEventId)
+        {
+            description = itr.second->GetLongDescription();
+            break;
+        }
+    }
+}
+
 void ReplayMgr::GetEventsListForTargets(uint32 startTime, uint32 endTime, std::vector<ObjectFilterEntry> const& objectFilters, std::vector<std::pair<uint64, std::shared_ptr<SniffedEvent>>>& eventsList)
 {
     for (const auto& itr : m_eventsMapBackup)

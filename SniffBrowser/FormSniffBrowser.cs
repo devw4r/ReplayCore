@@ -1,1090 +1,932 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
 using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using System.Runtime.InteropServices;
-using System.Text;
+using System.Drawing;
+using System.Threading;
+using System.Collections;
 using System.Windows.Forms;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Collections.Concurrent;
+
+using SniffBrowser.Core;
+using SniffBrowser.Events;
+using BrightIdeasSoftware;
+using SniffBrowser.Network;
+using SniffBrowser.Controls;
 
 namespace SniffBrowser
 {
     public partial class FormSniffBrowser : Form
     {
-        private enum ScrollBarDirection
-        {
-            SB_HORZ = 0,
-            SB_VERT = 1,
-            SB_CTL = 2,
-            SB_BOTH = 3
-        }
+        private NetworkClient NetworkClient;
+        private FormConnectionDialog ConnectDlg;
+        private readonly ImageList ImageList = new ImageList { ImageSize = new Size(64, 64) };
+        private readonly CancellationTokenSource NetworkJobsCancellationToken = new CancellationTokenSource();
+        private readonly BlockingCollection<byte[]> PendingNetworkJobs = new BlockingCollection<byte[]>();
+        private readonly System.Windows.Forms.Timer FilteringTimer = new System.Windows.Forms.Timer();
+        private static volatile bool IsClosing = false;
 
-        // for SMSG packets header contains uint16 size, then uint8 opcode
-        // for CMSG packets header contains only the uint8 opcode
-
-        private enum GUIOpcode
-        {
-            SMSG_EVENT_TYPE_LIST = 1,
-            CMSG_REQUEST_EVENT_DATA = 2,
-            SMSG_EVENT_DATA_LIST = 3,
-            SMSG_EVENT_DATA_END = 4,
-            CMSG_CHAT_COMMAND = 5,
-            CMSG_GOTO_GUID = 6,
-            CMSG_MAKE_SCRIPT = 7,
-        }
-
-        private Socket clientSocket;
-
-        Dictionary<uint, string> SniffedEventTypesDict = new Dictionary<uint, string>();
-        Dictionary<uint, int> SniffedEventImagesDict = new Dictionary<uint, int>();
-        enum ObjectTypeFilter
-        {
-            Any = 0,
-            GameObject = 1,
-            Transport = 2,
-            Unit = 3,
-            Creature = 4,
-            Pet = 5,
-            Player = 6,
-        };
-
-        public static IEnumerable<T> GetValues<T>()
-        {
-            return Enum.GetValues(typeof(T)).Cast<T>();
-        }
-
-        private ObjectTypeFilter GetObjectTypeFilterValueFromString(string name)
-        {
-            foreach (var item in GetValues<ObjectTypeFilter>())
-                if (item.ToString() == name)
-                    return item;
-            return ObjectTypeFilter.Any;
-        }
-
-        enum EventTypeFilter
-        {
-            All,
-            GameObject,
-            Unit,
-            Creature,
-            Player,
-            Client,
-            Miscellaneous
-        }
-
-        Color RowColor_Grey = Color.FromArgb(240, 240, 240);
-        Color RowColor_GameObject = Color.FromArgb(255, 240, 240);
-        Color RowColor_Creature = Color.FromArgb(240, 240, 255);
-        Color RowColor_Player = Color.FromArgb(240, 255, 240);
-        Color RowColor_Misc = Color.FromArgb(255, 255, 240);
-
-        enum RowColorType
-        {
-            None = 0,
-            Alternating = 1,
-            SourceBased = 2
-        }
-
-        Dictionary<uint, EventTypeFilter> SniffedEventCategoryDict = new Dictionary<uint, EventTypeFilter>();
-
-        class SniffedEvent
-        {
-            public uint uniqueIdentifier;
-            public uint eventType;
-            public ulong eventTime;
-            public ObjectGuid sourceGuid;
-            public ObjectGuid targetGuid;
-            public string longDescription;
-        }
+        private uint TimeRangeMinFilter = 0;
+        private uint TimeRangeMaxFilter = 0;
+        private int SelectedTimeType = 0;
+        private int SelectedTimeDisplay = 0;
+        private RowColorType SelectedRowColor = RowColorType.Alternating;
 
         public FormSniffBrowser()
         {
             InitializeComponent();
-            
         }
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.MinimumSize = this.Size;
-            lstObjectFilters.MinimumSize = lstObjectFilters.Size;
+            InitializeImageList();
+            InitializeControls();
+            InitializeEventsList();
+            IntializeFilterLists();
+            InitializeSniffedEventTypeFilterList();
+        }
 
-            cmbEventTypes.DataSource = GetValues<EventTypeFilter>();
+        private void FormSniffBrowser_Shown(object sender, EventArgs e)
+        {
+            ConnectToReplayCore();
+        }
+
+        private void InitializeControls()
+        {
+            this.MinimumSize = this.Size;
+
             cmbEventTypes.SelectedIndex = 0;
-            cmbObjectType.DataSource = GetValues<ObjectTypeFilter>();
-            cmbObjectType.SelectedIndex = 0;
             cmbTimeType.SelectedIndex = 0;
             cmbTimeDisplay.SelectedIndex = 0;
             cmbRowColors.SelectedIndex = 1;
 
-            if (lstObjectFilters.Items.Count > 0)
-            {
-                lstObjectFilters.Items[0].Selected = true;
-                lstObjectFilters.Select();
-            }
-            ImageList imageList = new ImageList { ImageSize = new Size(64, 64) };
-
-            // 0
-            imageList.Images.Add(new Bitmap(Properties.Resources.placeholder));
-
-            // 1
-            imageList.Images.Add(new Bitmap(Properties.Resources.weather_update));
-
-            // 2
-            imageList.Images.Add(new Bitmap(Properties.Resources.world_text));
-
-            // 3
-            imageList.Images.Add(new Bitmap(Properties.Resources.world_state_update));
-
-            // 4
-            imageList.Images.Add(new Bitmap(Properties.Resources.world_object_create1));
-
-            // 5
-            imageList.Images.Add(new Bitmap(Properties.Resources.world_object_create2));
-
-            // 6
-            imageList.Images.Add(new Bitmap(Properties.Resources.world_object_destroy));
-
-            // 7
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_attack_log));
-
-            // 8
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_attack_start));
-
-            // 9
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_attack_stop));
-
-            // 10
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_emote));
-
-            // 11
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_clientside_movement));
-
-            // 12
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_serverside_movement));
-
-            // 13
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_entry));
-
-            // 14
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_scale));
-
-            // 15
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_displayid));
-
-            // 16
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_mount));
-
-            // 17
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_faction));
-
-            // 18
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_level));
-
-            // 19
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_aurastate));
-
-            // 20
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_emotestate));
-
-            // 21
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_stand_state));
-
-            // 22
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_vis_flags));
-
-            // 23
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_sheath_state));
-
-            // 24
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_shapeshift_form));
-
-            // 25
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_npc_flags));
-
-            // 26
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_unit_flags));
-
-            // 27
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_dynamic_flags));
-
-            // 28
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_health));
-
-            // 29
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_mana));
-
-            // 30
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_bounding_radius));
-
-            // 31
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_combat_reach));
-
-            // 32
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_main_hand_attack_time));
-
-            // 33
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_off_hand_attack_time));
-
-            // 34
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_channel_spell));
-
-            // 35
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_guid_value));
-
-            // 36
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_speed));
-
-            // 37
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_update_auras));
-
-            // 38
-            imageList.Images.Add(new Bitmap(Properties.Resources.creature_text));
-
-            // 39
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_threat_clear));
-
-            // 40
-            imageList.Images.Add(new Bitmap(Properties.Resources.unit_threat_update));
-
-            // 41
-            imageList.Images.Add(new Bitmap(Properties.Resources.creature_equipment_update));
-
-            // 42
-            imageList.Images.Add(new Bitmap(Properties.Resources.player_chat));
-
-            // 43
-            imageList.Images.Add(new Bitmap(Properties.Resources.player_equipment_update));
-
-            // 44
-            imageList.Images.Add(new Bitmap(Properties.Resources.gameobject_custom_anim));
-
-            // 45
-            imageList.Images.Add(new Bitmap(Properties.Resources.gameobject_despawn_anim));
-
-            // 46
-            imageList.Images.Add(new Bitmap(Properties.Resources.gameobject_update_flags));
-
-            // 47
-            imageList.Images.Add(new Bitmap(Properties.Resources.gameobject_update_state));
-
-            // 48
-            imageList.Images.Add(new Bitmap(Properties.Resources.gameobject_update_artkit));
-
-            // 49
-            imageList.Images.Add(new Bitmap(Properties.Resources.gameobject_update_dynamic_flags));
-
-            // 50
-            imageList.Images.Add(new Bitmap(Properties.Resources.gameobject_update_path_progress));
-
-            // 51
-            imageList.Images.Add(new Bitmap(Properties.Resources.play_music));
-
-            // 52
-            imageList.Images.Add(new Bitmap(Properties.Resources.play_sound));
-
-            // 53
-            imageList.Images.Add(new Bitmap(Properties.Resources.play_spell_visual_kit));
-
-            // 54
-            imageList.Images.Add(new Bitmap(Properties.Resources.spell_cast_failed));
-
-            // 55
-            imageList.Images.Add(new Bitmap(Properties.Resources.spell_cast_start));
-
-            // 56
-            imageList.Images.Add(new Bitmap(Properties.Resources.spell_cast_go));
-
-            // 57
-            imageList.Images.Add(new Bitmap(Properties.Resources.client_quest_accept));
-
-            // 58
-            imageList.Images.Add(new Bitmap(Properties.Resources.client_quest_complete));
-
-            // 59
-            imageList.Images.Add(new Bitmap(Properties.Resources.client_creature_interact));
-
-            // 60
-            imageList.Images.Add(new Bitmap(Properties.Resources.client_gameobject_use));
-
-            // 61
-            imageList.Images.Add(new Bitmap(Properties.Resources.client_item_use));
-
-            // 62
-            imageList.Images.Add(new Bitmap(Properties.Resources.client_reclaim_corpse));
-
-            // 63
-            imageList.Images.Add(new Bitmap(Properties.Resources.client_release_spirit));
-
-            // 64
-            imageList.Images.Add(new Bitmap(Properties.Resources.quest_update_complete));
-
-            // 65
-            imageList.Images.Add(new Bitmap(Properties.Resources.quest_update_failed));
-
-            // 66
-            imageList.Images.Add(new Bitmap(Properties.Resources.xp_gain));
-
-            // 67
-            imageList.Images.Add(new Bitmap(Properties.Resources.faction_standing_update));
-
-            // 68
-            imageList.Images.Add(new Bitmap(Properties.Resources.login));
-
-            // 69
-            imageList.Images.Add(new Bitmap(Properties.Resources.logout));
-
-            // 70
-            imageList.Images.Add(new Bitmap(Properties.Resources.cinematic_begin));
-
-            // 71
-            imageList.Images.Add(new Bitmap(Properties.Resources.cinematic_end));
-
-            lstEvents.SmallImageList = imageList;
-            ConnectToReplayCore();
+            FilteringTimer.Tick += FilteringTimer_Tick;
+            FilteringTimer.Interval = 700;
+            FilteringTimer.Stop();
+
+            eventsListCtxMenu.Items.Add("Copy Event Time", null, OnCopyEventTime);
+            eventsListCtxMenu.Items.Add("Copy Event Source", null, OnCopyEventSource);
+            eventsListCtxMenu.Items.Add("Copy Event Target", null, OnCopyEventTarget);
+            eventsListCtxMenu.Items.Add("-");
+            eventsListCtxMenu.Items.Add("Remove This Row", null, OnRemoveRow);
+            eventsListCtxMenu.Items.Add("Remove This Type", null, OnRemoveType);
+            eventsListCtxMenu.Items.Add("Remove This Source", null, OnRemoveSource);
+            eventsListCtxMenu.Items.Add("Remove This Target", null, OnRemoveTarget);
+
+            ProcessPendingNetworkJobs();
         }
+
+        private void InitializeImageList()
+        {
+            ImageList.Images.AddRange(new List<Bitmap>() {
+                Properties.Resources.placeholder,
+                Properties.Resources.weather_update,
+                Properties.Resources.world_text,
+                Properties.Resources.world_state_update,
+                Properties.Resources.world_object_create1,
+                Properties.Resources.world_object_create2,
+                Properties.Resources.world_object_destroy,
+                Properties.Resources.unit_attack_log,
+                Properties.Resources.unit_attack_start,
+                Properties.Resources.unit_attack_stop,
+                Properties.Resources.unit_emote,
+                Properties.Resources.unit_clientside_movement,
+                Properties.Resources.unit_serverside_movement,
+                Properties.Resources.unit_update_entry,
+                Properties.Resources.unit_update_scale,
+                Properties.Resources.unit_update_displayid,
+                Properties.Resources.unit_update_mount,
+                Properties.Resources.unit_update_faction,
+                Properties.Resources.unit_update_level,
+                Properties.Resources.unit_update_aurastate,
+                Properties.Resources.unit_update_emotestate,
+                Properties.Resources.unit_update_stand_state,
+                Properties.Resources.unit_update_vis_flags,
+                Properties.Resources.unit_update_sheath_state,
+                Properties.Resources.unit_update_shapeshift_form,
+                Properties.Resources.unit_update_npc_flags,
+                Properties.Resources.unit_update_unit_flags,
+                Properties.Resources.unit_update_dynamic_flags,
+                Properties.Resources.unit_update_health,
+                Properties.Resources.unit_update_mana,
+                Properties.Resources.unit_update_bounding_radius,
+                Properties.Resources.unit_update_combat_reach,
+                Properties.Resources.unit_update_main_hand_attack_time,
+                Properties.Resources.unit_update_off_hand_attack_time,
+                Properties.Resources.unit_update_channel_spell,
+                Properties.Resources.unit_update_guid_value,
+                Properties.Resources.unit_update_speed,
+                Properties.Resources.unit_update_auras,
+                Properties.Resources.creature_text,
+                Properties.Resources.unit_threat_clear,
+                Properties.Resources.unit_threat_update,
+                Properties.Resources.creature_equipment_update,
+                Properties.Resources.player_chat,
+                Properties.Resources.player_equipment_update,
+                Properties.Resources.gameobject_custom_anim,
+                Properties.Resources.gameobject_despawn_anim,
+                Properties.Resources.gameobject_update_flags,
+                Properties.Resources.gameobject_update_state,
+                Properties.Resources.gameobject_update_artkit,
+                Properties.Resources.gameobject_update_dynamic_flags,
+                Properties.Resources.gameobject_update_path_progress,
+                Properties.Resources.play_music,
+                Properties.Resources.play_sound,
+                Properties.Resources.play_spell_visual_kit,
+                Properties.Resources.spell_cast_failed,
+                Properties.Resources.spell_cast_start,
+                Properties.Resources.spell_cast_go,
+                Properties.Resources.client_quest_accept,
+                Properties.Resources.client_quest_complete,
+                Properties.Resources.client_creature_interact,
+                Properties.Resources.client_gameobject_use,
+                Properties.Resources.client_item_use,
+                Properties.Resources.client_reclaim_corpse,
+                Properties.Resources.client_release_spirit,
+                Properties.Resources.quest_update_complete,
+                Properties.Resources.quest_update_failed,
+                Properties.Resources.xp_gain,
+                Properties.Resources.faction_standing_update,
+                Properties.Resources.login,
+                Properties.Resources.logout,
+                Properties.Resources.cinematic_begin,
+                Properties.Resources.cinematic_end,
+             }.ToArray());
+        }
+
+        private void InitializeEventsList()
+        {
+            eventsListView.SmallImageList = ImageList;
+            eventsListView.FullRowSelect = true;
+            eventsListView.ShowGroups = false;
+            eventsListView.AllowColumnReorder = false;
+            eventsListView.EmptyListMsg = "No events or nothing filtered.";
+            eventsListView.RowHeight = 64;
+            eventsListView.AlternateRowBackColor = Colors.RowColor_Grey;
+            eventsListView.UseAlternatingBackColors = true;
+            eventsListView.UseFiltering = true;
+            eventsListView.FormatRow += EventsListView_FormatRow;
+            eventsListView.ContextMenuStrip = eventsListCtxMenu;
+
+            OLVColumn EventCol = new OLVColumn("Event", "Event")
+            {
+                AspectGetter = delegate (object o)
+                {
+                    return null;
+                },
+
+                ImageGetter = delegate (object o)
+                {
+                    if (!(o is SniffedEvent sEvent) || !DataHolder.TryGetImageIndexForEventType((uint)sEvent.EventType, out int imgIndx))
+                        return null;
+                    return imgIndx;
+                },
+
+                Sortable = false,
+                UseFiltering = false,
+                MinimumWidth = 68,
+                MaximumWidth = 68
+            };
+
+            OLVColumn TimeCol = new OLVColumn("Time", "Time")
+            {
+                AspectGetter = delegate (object o)
+                {
+                    if (!(o is SniffedEvent sEvent))
+                        return null;
+                    return sEvent.FormatTimeString(SelectedTimeType, SelectedTimeDisplay);
+                },
+
+                Sortable = false,
+                UseFiltering = true
+            };
+
+            OLVColumn DescriptionCol = new OLVColumn("Description", "Description")
+            {
+                AspectGetter = delegate (object o)
+                {
+                    if (!(o is SniffedEvent sEvent))
+                        return null;
+                    return sEvent.ShortDescription;
+                },
+
+                Sortable = false,
+                FillsFreeSpace = true,
+                UseFiltering = true
+            };
+
+            eventsListView.Columns.Add(EventCol);
+            eventsListView.Columns.Add(TimeCol);
+            eventsListView.Columns.Add(DescriptionCol);
+        }
+
+        private void InitializeSniffedEventTypeFilterList()
+        {
+            EventTypeFilterListView.ShowGroups = false;
+            EventTypeFilterListView.CheckBoxes = true;
+            EventTypeFilterListView.ShowItemToolTips = true;
+            EventTypeFilterListView.FullRowSelect = true;
+            EventTypeFilterListView.UseFiltering = true;
+
+            EventTypeFilterListView.BooleanCheckStateGetter = delegate (object o)
+            {
+                if (!(o is SniffedEventTypeFilterEntry sEventType))
+                    return false;
+
+                return sEventType.Enabled;
+            };
+
+            EventTypeFilterListView.BooleanCheckStatePutter = delegate (object o, bool newValue)
+            {
+                if (!(ObjectFiltersListView.SelectedObject is Filter filter))
+                    return false;
+
+                if (!(o is SniffedEventTypeFilterEntry sEventType))
+                    return false;
+
+                if (newValue && filter.EnableSniffedEventType(sEventType.FilterType))
+                    EnqueueFiltering();
+                else if (!newValue && filter.DisableSniffedEventType(sEventType.FilterType))
+                    EnqueueFiltering();
+
+                return newValue;
+            };
+
+            OLVColumn StateCol = new OLVColumn("On", "On")
+            {
+                AspectGetter = delegate (object o)
+                {
+                    if (!(o is SniffedEventTypeFilterEntry sEventType))
+                        return false;
+
+                    return sEventType.Enabled;
+                },
+
+                TextAlign = HorizontalAlignment.Left,
+                IsEditable = true,
+                UseFiltering = true,
+                MinimumWidth = 27,
+                MaximumWidth = 27,
+                CheckBoxes = true,
+                Sortable = false,
+            };
+
+            OLVColumn NameCol = new OLVColumn("Name", "Name")
+            {
+                AspectGetter = delegate (object o)
+                {
+                    if (!(o is SniffedEventTypeFilterEntry sEventType))
+                        return false;
+
+                    if (DataHolder.TryGetEventTypeEntryById((uint)sEventType.FilterType, out var eventType))
+                        return eventType.EventName;
+
+                    return sEventType.FilterType.ToString().Replace("SE_", string.Empty);
+                },
+
+                UseFiltering = true,
+                IsEditable = false,
+                Sortable = false,
+                FillsFreeSpace = true
+            };
+
+            EventTypeFilterListView.Columns.Add(StateCol);
+            EventTypeFilterListView.Columns.Add(NameCol);
+        }
+
+        private void IntializeFilterLists()
+        {
+            ObjectFiltersListView.FullRowSelect = true;
+            ObjectFiltersListView.ShowGroups = false;
+            ObjectFiltersListView.AllowColumnReorder = false;
+            ObjectFiltersListView.AlternateRowBackColor = Colors.RowColor_Grey;
+            ObjectFiltersListView.UseAlternatingBackColors = true;
+            ObjectFiltersListView.GridLines = true;
+            ObjectFiltersListView.CheckBoxes = true;
+            ObjectFiltersListView.ShowItemToolTips = true;
+
+            ObjectFiltersListView.BooleanCheckStateGetter = delegate (object o)
+            {
+                if (!(o is Filter filter))
+                    return false;
+
+                return filter.Enabled;
+            };
+
+            ObjectFiltersListView.BooleanCheckStatePutter = delegate (object o, bool newValue)
+            {
+                if (!(o is Filter filter))
+                    return false;
+
+                if (filter.Enabled != newValue)
+                {
+                    filter.Enabled = newValue;
+                    EnqueueFiltering();
+                }
+
+                return newValue;
+            };
+
+            OLVColumn StateCol = new OLVColumn("On", "On")
+            {
+                AspectGetter = delegate (object o)
+                {
+                    if (!(o is Filter filter))
+                        return false;
+
+                    return filter.Enabled;
+                },
+
+                TextAlign = HorizontalAlignment.Center,
+                IsEditable = true,
+                MinimumWidth = 27,
+                MaximumWidth = 27,
+                CheckBoxes = true,
+                Sortable = false,
+            };
+
+            OLVColumn NameCol = new OLVColumn("Name", "Name")
+            {
+                AspectGetter = delegate (object o)
+                {
+                    if (!(o is Filter filter))
+                        return null;
+
+                    if (filter.Guid.IsEmpty)
+                        return "Any";
+
+                    return filter.Guid.ObjectName;
+                },
+
+                IsEditable = false,
+                Sortable = false,
+                MinimumWidth = 100
+            };
+
+            OLVColumn GuidCol = new OLVColumn("Guid", "Guid")
+            {
+                AspectGetter = delegate (object o)
+                {
+                    if (!(o is Filter filter))
+                        return null;
+
+                    if (filter.Guid.IsEmpty)
+                        return "Any";
+
+                    return filter.Guid.GetCounter();
+                },
+
+                IsEditable = false,
+                Sortable = false,
+                MinimumWidth = 100
+            };
+
+            OLVColumn EntryCol = new OLVColumn("Entry", "Entry")
+            {
+                AspectGetter = delegate (object o)
+                {
+                    if (!(o is Filter filter))
+                        return null;
+
+                    if (!filter.Guid.HasEntry())
+                        return "Any";
+
+                    return filter.Guid.GetEntry();
+                },
+
+                IsEditable = false,
+                Sortable = false,
+                MinimumWidth = 80
+            };
+
+            OLVColumn TypeCol = new OLVColumn("Type", "Type")
+            {
+                AspectGetter = delegate (object o)
+                {
+                    if (!(o is Filter filter))
+                        return null;
+
+                    if (filter.OnlyObjectType)
+                        return filter.ObjectType;
+
+                    if (filter.Guid.IsEmpty)
+                        return "Any";
+
+                    return filter.Guid.GetObjectType();
+                },
+
+                DataType = typeof(ObjectType),
+                IsEditable = true,
+                Sortable = false,
+                FillsFreeSpace = true,
+            };
+
+            ObjectFiltersListView.Columns.Add(StateCol);
+            ObjectFiltersListView.Columns.Add(NameCol);
+            ObjectFiltersListView.Columns.Add(GuidCol);
+            ObjectFiltersListView.Columns.Add(EntryCol);
+            ObjectFiltersListView.Columns.Add(TypeCol);
+        }
+
+        private void EventsListView_FormatRow(object sender, FormatRowEventArgs e)
+        {
+            if (!(e.Model is SniffedEvent sEvent))
+                return;
+
+            switch (SelectedRowColor)
+            {
+                case RowColorType.None:
+                    e.Item.BackColor = Color.White;
+                    break;
+                case RowColorType.SourceBased:
+                    if (sEvent.SourceGuid.IsEmpty)
+                        e.Item.BackColor = Color.White;
+                    else if (sEvent.SourceGuid.GetObjectType() == ObjectType.GameObject)
+                        e.Item.BackColor = Colors.RowColor_GameObject;
+                    else if (sEvent.SourceGuid.GetObjectType() == ObjectType.Creature)
+                        e.Item.BackColor = Colors.RowColor_Creature;
+                    else if (sEvent.SourceGuid.GetObjectType() == ObjectType.Player)
+                        e.Item.BackColor = Colors.RowColor_Player;
+                    else
+                        e.Item.BackColor = Colors.RowColor_Misc;
+                    return;
+            }
+        }
+
+        #region ContextMenuStrip
+        private void OnRemoveSource(object sender, EventArgs e)
+        {
+            if (!(eventsListView.SelectedObject is SniffedEvent sEvent))
+            {
+                MessageBox.Show("No selected event.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (sEvent.SourceGuid.IsEmpty)
+            {
+                MessageBox.Show("Event has no source!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            Task t = new Task(() =>
+            {
+                foreach (var toRemoveEvent in eventsListView.Objects.OfType<SniffedEvent>().Where(ev => ev.SourceGuid.Equals(sEvent.SourceGuid)))
+                    toRemoveEvent.Discarded = true;
+            });
+            t.Start();
+            t.Wait();
+
+            eventsListView.ClearSelection();
+            eventsListView.LightRefreshObjects();
+            RefreshFiltering();
+        }
+
+        private void OnRemoveTarget(object sender, EventArgs e)
+        {
+            if (!(eventsListView.SelectedObject is SniffedEvent sEvent))
+            {
+                MessageBox.Show("No selected event.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (sEvent.TargetGuid.IsEmpty)
+            {
+                MessageBox.Show("Event has no target!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            Task t = new Task(() =>
+            {
+                foreach (var toRemoveEvent in eventsListView.Objects.OfType<SniffedEvent>().Where(ev => ev.TargetGuid.Equals(sEvent.TargetGuid)))
+                    toRemoveEvent.Discarded = true;
+            });
+            t.Start();
+            t.Wait();
+
+            eventsListView.ClearSelection();
+            eventsListView.LightRefreshObjects();
+            RefreshFiltering();
+        }
+
+        private void OnRemoveType(object sender, EventArgs e)
+        {
+            if (!(eventsListView.SelectedObject is SniffedEvent sEvent))
+            {
+                MessageBox.Show("No selected event.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            Task t = new Task(() =>
+            {
+                foreach (var toRemoveEvent in eventsListView.Objects.OfType<SniffedEvent>().Where(ev => ev.EventType.Equals(sEvent.EventType)))
+                    toRemoveEvent.Discarded = true;
+            });
+            t.Start();
+            t.Wait();
+
+            eventsListView.ClearSelection();
+            eventsListView.LightRefreshObjects();
+            RefreshFiltering();
+        }
+
+        private void OnRemoveRow(object sender, EventArgs e)
+        {
+            if (!(eventsListView.SelectedObject is SniffedEvent sEvent))
+            {
+                MessageBox.Show("No selected event.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            sEvent.Discarded = true;
+            eventsListView.ClearSelection();
+            eventsListView.LightRefreshObjects();
+            RefreshFiltering();
+        }
+
+        private void OnCopyEventTarget(object sender, EventArgs e)
+        {
+            if (!(eventsListView.SelectedObject is SniffedEvent sEvent))
+            {
+                MessageBox.Show("No selected event.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (sEvent.TargetGuid.IsEmpty)
+            {
+                MessageBox.Show("Event has no target!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            SetObjectFilterFieldsFromGuid(sEvent.TargetGuid);
+        }
+
+        private void OnCopyEventSource(object sender, EventArgs e)
+        {
+            if (!(eventsListView.SelectedObject is SniffedEvent sEvent))
+            {
+                MessageBox.Show("No selected event.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (sEvent.SourceGuid.IsEmpty)
+            {
+                MessageBox.Show("Event has no source!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            SetObjectFilterFieldsFromGuid(sEvent.SourceGuid);
+        }
+
+        private void OnCopyEventTime(object sender, EventArgs e)
+        {
+            if (!(eventsListView.SelectedObject is SniffedEvent sEvent))
+            {
+                MessageBox.Show("No selected event.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            TStripTxtStartTimeValue.Text = sEvent.UnixTime.ToString();
+            TStripTxtEndTimeValue.Text = sEvent.UnixTime.ToString();
+        }
+        #endregion
+
+        #region Async job processing.
+        private void ProcessPendingNetworkJobs()
+        {
+            ThreadPool.QueueUserWorkItem((x) =>
+            {
+                while (!IsClosing)
+                {
+                    try
+                    {
+                        HandleNetworkPacket(PendingNetworkJobs.Take(NetworkJobsCancellationToken.Token));
+                    }
+                    catch (ArgumentNullException) { Console.WriteLine("BlockingCollection exit."); }
+                    catch (OperationCanceledException) { Console.WriteLine("BlockingCollection exit."); } // Exit.
+                    catch (Exception ex)
+                    {
+                        if (IsClosing)
+                            return;
+
+                        BeginInvoke(new Action(() =>
+                        {
+                            MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            Close();
+                        }));
+                    }
+                }
+            });
+        }
+        #endregion
+
+        #region Network
 
         private void ConnectToReplayCore()
         {
-            showdialog: FormConnectionDialog dialog = new FormConnectionDialog();
-            if (dialog.ShowDialog(this) != DialogResult.OK)
-                Close();
+            if (IsClosing)
+                return;
 
-            try
+            if (InvokeRequired)
             {
-                clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                // Connect to the specified host.
-                var endPoint = new IPEndPoint(IPAddress.Parse(dialog.ReturnIpAddress), dialog.ReturnPort);
-                clientSocket.BeginConnect(endPoint, ConnectCallback, null);
+                Invoke(new Action(() => { ConnectToReplayCore(); }));
+                return;
             }
-            catch (Exception ex)
-            {
-                if (MessageBox.Show(ex.Message, "Socket Error", MessageBoxButtons.RetryCancel, MessageBoxIcon.Error) == DialogResult.Retry)
-                    goto showdialog;
-            }
-        }
 
-        private void ConnectCallback(IAsyncResult AR)
-        {
-            try
+            ConnectDlg?.Dispose();
+            ConnectDlg = null;
+            NetworkClient?.Dispose();
+            NetworkClient = null;
+
+            using (ConnectDlg = new FormConnectionDialog())
             {
-                clientSocket.EndConnect(AR);
-                clientSocket.ReceiveBufferSize = 65535;
-                byte[] buffer = new byte[sizeof(ushort)];
-                clientSocket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, ReceiveCallback, buffer);
-            }
-            catch (Exception ex)
-            {
-                if (MessageBox.Show(ex.Message, "Connection Error", MessageBoxButtons.RetryCancel, MessageBoxIcon.Error) == DialogResult.Retry)
-                    ConnectToReplayCore();
-                else
+                ConnectDlg.OnTryConnect += new EventHandler<TryConnectEventArgs>((o, e) =>
                 {
-                    Invoke((Action)delegate
+                    NetworkClient = new NetworkClient(e.ip, e.port)
                     {
-                        Close();
-                    });
-                }
+                        OnConnectSuccess = OnConnectSuccess,
+                        OnPacketReceived = OnPacketReceived,
+                        OnReadError = OnReadError,
+                        OnWriteError = OnWriteError
+                    };
+
+                    ConnectDlg?.AttachNetworkClient(NetworkClient);
+                    NetworkClient?.Connect();
+                });
+
+
+                if (ConnectDlg.ShowDialog(this) != DialogResult.OK)
+                    Close();
             }
         }
 
-        private void ReceiveCallback(IAsyncResult AR)
+        private void OnConnectSuccess(object sender, EventArgs e)
         {
-            try
-            {
-                int received = clientSocket.EndReceive(AR);
-
-                if (received == 0)
-                    return;
-
-                if (received != sizeof(ushort))
-                {
-                    MessageBox.Show("Received " + received + " bytes when reading header!", "Packet Read Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-
-                byte[] buffer = (byte[])AR.AsyncState;
-                ushort packetSize = BitConverter.ToUInt16(buffer, 0);
-
-                if (packetSize != 0)
-                {
-                    if (packetSize > clientSocket.ReceiveBufferSize)
-                    {
-                        MessageBox.Show("Packet size is greater than max buffer size!", "Packet Read Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        return;
-                    }
-
-                    buffer = new byte[packetSize];
-                    received = 0;
-                    while (received != packetSize)
-                    {
-                        int receivedNow = clientSocket.Receive(buffer, received, packetSize - received, SocketFlags.None);
-                        if (receivedNow == 0)
-                            return;
-
-                        received += receivedNow;
-                    }
-
-                    Invoke((Action)delegate
-                    {
-                        HandlePacket(buffer);
-                    });
-                }
-                else
-                {
-                    MessageBox.Show("Received an empty packet!", "Packet Read Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-
-                buffer = new byte[sizeof(ushort)];
-
-                // Start receiving data again.
-                clientSocket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, ReceiveCallback, buffer);
-            }
-            // Avoid Pokemon exception handling in cases like these.
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message, "Packet Read Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            Console.WriteLine("Begin Listening");
         }
 
-        private void HandlePacket(byte[] buffer)
+        private void OnWriteError(object sender, EventArgs e)
         {
-            ByteBuffer packet = new ByteBuffer(buffer);
-            byte opcode = packet.ReadUInt8();
-            
-            switch ((GUIOpcode)opcode)
+            if (MessageBox.Show((string)sender, "Socket Write Error", MessageBoxButtons.RetryCancel, MessageBoxIcon.Error) == DialogResult.Retry)
+                ConnectToReplayCore();
+        }
+
+        private void OnReadError(object sender, EventArgs e)
+        {
+            if (MessageBox.Show((string)sender, "Socket Read Error", MessageBoxButtons.RetryCancel, MessageBoxIcon.Error) == DialogResult.Retry)
+                ConnectToReplayCore();
+        }
+
+        private void OnPacketReceived(object sender, EventArgs e)
+        {
+            if (sender is byte[] bytes)
+                PendingNetworkJobs.Add(bytes);
+        }
+
+
+        private void HandleNetworkPacket(byte[] buffer)
+        {
+            using (ByteBuffer packet = new ByteBuffer(buffer))
             {
-                case GUIOpcode.SMSG_EVENT_TYPE_LIST:
+                var payloadSize = packet.ReadUInt16(); // Payload Size.
+                GUIOpcode opcode = (GUIOpcode)packet.ReadUInt8();
+
+                switch (opcode)
                 {
-                    SniffedEventTypesDict.Clear();
-
-                    uint startTime = packet.ReadUInt32();
-                    txtStartTime.Text = startTime.ToString();
-                    uint endTime = packet.ReadUInt32();
-                    txtEndTime.Text = endTime.ToString();
-
-                    uint eventsCount = packet.ReadUInt32();
-                    for (uint i = 0; i < eventsCount; i++)
-                    {
-                        uint eventId = packet.ReadUInt32();
-                        int imageIndex = packet.ReadInt32();
-                        string eventName = packet.ReadCString();
-                        SniffedEventTypesDict.Add(eventId, eventName);
-                        SniffedEventImagesDict.Add(eventId, imageIndex);
-                        SniffedEventCategoryDict.Add(eventId, DetermineEventCategory(eventName));
-                    }
-                    UpdateEventTypesList();
-                    btnAdd_Click(null, null);
-                    break;
-                }
-                case GUIOpcode.SMSG_EVENT_DATA_LIST:
-                {
-                    uint eventsCount = packet.ReadUInt32();
-                    ulong firstEventTime = 0;
-                    ulong previousEventTime = 0;
-                    for (uint i = 0; i < eventsCount; i++)
-                    {
-                        SniffedEvent eventData = new SniffedEvent();
-                        eventData.uniqueIdentifier = packet.ReadUInt32();
-                        eventData.eventType = packet.ReadUInt32();
-                        eventData.eventTime = packet.ReadUInt64();
-                        eventData.sourceGuid = new ObjectGuid(packet.ReadUInt64());
-                        eventData.targetGuid = new ObjectGuid(packet.ReadUInt64());
-                        string shortDescription = packet.ReadCString();
-                        eventData.longDescription = packet.ReadCString();
-
-                        if (i == 0)
+                    case GUIOpcode.SMSG_EVENT_TYPE_LIST:
+                        DataHolder.SetEventTypeList(new SMSG_EVENT_TYPE_LIST(packet));
+                        ConnectDlg?.BeginDownloadingData();
+                        break;
+                    case GUIOpcode.SMSG_EVENT_DATA_LIST:
+                        foreach (SniffedEvent sEvent in SMSG_EVENT_DATA_LIST.BuildGetEvents(packet))
+                            DataHolder.PushSniffedEvent(sEvent);
+                        ConnectDlg?.UpdateProgress(DataHolder.GetProgress());
+                        break;
+                    case GUIOpcode.SMSG_EVENT_DATA_END:
+                        SetSniffedEventsModel();
+                        break;
+                    case GUIOpcode.SMSG_EVENT_DESCRIPTION:
+                        var eventDescriptionData = new SMSG_EVENT_DESCRIPTION(packet);
+                        BeginInvoke(new Action(() =>
                         {
-                            firstEventTime = eventData.eventTime;
-                            previousEventTime = eventData.eventTime;
-                        }
-
-                        ListViewItem newItem = new ListViewItem();
-                        newItem.Text = "";
-                        newItem.SubItems.Add(FormatTimeString(eventData.eventTime, firstEventTime, previousEventTime));
-                        newItem.SubItems.Add(shortDescription);
-                        newItem.ImageIndex = SniffedEventImagesDict[eventData.eventType];
-                        newItem.Tag = eventData;
-                        lstEvents.Items.Add(newItem);
-
-                        previousEventTime = eventData.eventTime;
-                    }
-                    
-                    break;
-                }
-                case GUIOpcode.SMSG_EVENT_DATA_END:
-                {
-                    Text = "Sniff Browser - Showing " + lstEvents.Items.Count.ToString() + " Events";
-                    btnRefresh.Enabled = true;
-                    break;
+                            using (eventDescriptionData)
+                                if (eventsListView.SelectedObject is SniffedEvent sEvent && sEvent.UUID.Equals(eventDescriptionData.SniffedEventId))
+                                    TxtEventDescription.Text += Environment.NewLine + eventDescriptionData.LongDescription;
+                        }));
+                        break;
                 }
             }
         }
 
-        private void SendCallback(IAsyncResult AR)
+        #endregion
+
+        private void SetSniffedEventsModel()
         {
-            try
+            BeginInvoke(new Action(() =>
             {
-                clientSocket.EndSend(AR);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message, "Packet Send Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
+                TStripTxtStartTimeValue.Text = DataHolder.GetStartTime().ToString();
+                TStripTxtEndTimeValue.Text = DataHolder.GetEndTime().ToString();
+                TimeRangeTrackBar.BarMinimum = DataHolder.GetStartTime();
+                TimeRangeTrackBar.BarMaximum = DataHolder.GetEndTime();
+                TimeRangeTrackBar.RangeMinimum = DataHolder.GetStartTime();
+                TimeRangeTrackBar.RangeMaximum = DataHolder.GetEndTime();
+                TimeRangeMinFilter = (uint)TimeRangeTrackBar.RangeMinimum;
+                TimeRangeMaxFilter = (uint)TimeRangeTrackBar.RangeMaximum;
+                TxtTimeRangeMin.Text = DataHolder.GetStartTime().ToString();
+                TxtTimeRangeMax.Text = DataHolder.GetEndTime().ToString();
+                UpdateTimeRangeValues();
+                UpdateEventTypesList();
+                DataHolder.UpdateEventTimes();
+                eventsListView.Freeze();
+                TxtFilter.Text = string.Empty;
+                eventsListView.ModelFilter = null;
+                eventsListView.ClearObjects();
+                eventsListView.SetObjects(DataHolder.SniffedEvents);
+                eventsListView.AutoResizeColumns();
+                eventsListView.Unfreeze();
 
-        private void SendPacket(ByteBuffer packet)
-        {
-            try
-            {
-                clientSocket.BeginSend(packet.GetData(), 0, (int)packet.GetSize(), SocketFlags.None, SendCallback, null);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message, "Packet Write Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
+                ObjectFiltersListView.SetObjects(DataHolder.GetFilters());
+                ObjectFiltersListView.AutoResizeColumns();
+                ObjectFiltersListView.SelectedObject = DataHolder.GetFilters().First();
 
-        private string FormatTimeString(ulong unixTimeMs, ulong firstEventTime, ulong previousEventTime)
-        {
-            ulong displayTime = 0;
-            switch (cmbTimeType.SelectedIndex)
-            {
-                case 0: // Exact Time
-                {
-                    displayTime = unixTimeMs;
-                    break;
-                }
-                case 1: // Time Since First Event
-                {
-                    displayTime = unixTimeMs - firstEventTime;
-                    break;
-                }
-                case 2: // Time Since Previous Event
-                {
-                    displayTime = unixTimeMs - previousEventTime;
-                    break;
-                }
-            }
-
-            string timeString = "";
-            switch (cmbTimeDisplay.SelectedIndex)
-            {
-                case 0: // Milliseconds
-                {
-                    timeString = String.Format("{0:n0}", displayTime);
-                    break;
-                }
-                case 1: // Seconds
-                {
-                    displayTime = displayTime / 1000;
-                    timeString = String.Format("{0:n0}", displayTime);
-                    break;
-                }
-                case 2: // Formatted
-                {
-                    TimeSpan t = TimeSpan.FromMilliseconds(displayTime);
-                    timeString = string.Format("{0:D2}h:{1:D2}m:{2:D2}s:{3:D3}ms",
-                                    t.Hours,
-                                    t.Minutes,
-                                    t.Seconds,
-                                    t.Milliseconds);
-                    break;
-                }
-            }
-            return timeString;
-        }
-
-        private EventTypeFilter DetermineEventCategory(string eventName)
-        {
-            if (eventName.StartsWith("Client"))
-                return EventTypeFilter.Client;
-            if (eventName.StartsWith("Player"))
-                return EventTypeFilter.Player;
-            if (eventName.StartsWith("Creature"))
-                return EventTypeFilter.Creature;
-            if (eventName.StartsWith("Unit"))
-                return EventTypeFilter.Unit;
-            if (eventName.StartsWith("GameObject"))
-                return EventTypeFilter.GameObject;
-
-            return EventTypeFilter.Miscellaneous;
+                Text = $"Sniff Browser - Showing {eventsListView.GetItemCount()} Events";
+                GC.Collect();
+            }));
         }
 
         private void UpdateEventTypesList()
         {
-            lstEventFilters.Items.Clear();
-
-            if (lstObjectFilters.SelectedItems.Count == 0)
+            if (!DataHolder.HasEvents())
                 return;
 
-            ListViewItem selectedObject = lstObjectFilters.SelectedItems[0];
-            HashSet<uint> selectedEventTypeList = selectedObject.Tag as HashSet<uint>;
-
-            foreach (var eventType in SniffedEventTypesDict)
+            EventTypeFilterListView.ModelFilter = new ModelFilter(o =>
             {
-                if ((EventTypeFilter)cmbEventTypes.SelectedIndex != EventTypeFilter.All &&
-                    SniffedEventCategoryDict[eventType.Key] != (EventTypeFilter)cmbEventTypes.SelectedIndex)
-                    continue;
+                if (!(o is SniffedEventTypeFilterEntry sType))
+                    return false;
 
-                ListViewItem newItem = new ListViewItem();
-                newItem.Text = eventType.Value;
-                newItem.Tag = eventType.Key;
+                if (cmbEventTypes.SelectedIndex == 0)
+                    return true; // All.
 
-                if (selectedEventTypeList.Contains(eventType.Key))
-                    newItem.Checked = true;
+                if (DataHolder.TryGetEventTypeEntryById((uint)sType.FilterType, out var eventType))
+                    if (eventType.EventTypeFilter != (EventTypeFilter)cmbEventTypes.SelectedIndex)
+                        return false;
 
-                lstEventFilters.Items.Add(newItem);
-            }
+                return true;
+            });
         }
 
-        private void lstEventFilters_ItemChecked(object sender, ItemCheckedEventArgs e)
+        private bool IsVisibleSniffedEvent(SniffedEvent sEvent)
         {
-            if (lstObjectFilters.SelectedItems.Count > 0)
-            {
-                // Get the selected item.
-                ListViewItem selectedObject = lstObjectFilters.SelectedItems[0];
-                HashSet<uint> selectedEventTypeList = selectedObject.Tag as HashSet<uint>;
+            if (sEvent == null)
+                return false;
 
-                ListViewItem item = e.Item;
-                uint eventId = (uint)item.Tag;
+            if (sEvent.Discarded)
+                return false;
 
-                if (item.Checked)
-                    selectedEventTypeList.Add(eventId);
-                else
-                    selectedEventTypeList.Remove(eventId);
+            if (TimeRangeMinFilter != 0 && sEvent.UnixTime < TimeRangeMinFilter)
+                return false;
 
-                if (selectedEventTypeList.Count == SniffedEventTypesDict.Count)
-                    selectedObject.SubItems[3].Text = "All";
-                else
-                {
-                    string eventTypesList = "";
-                    foreach (var eventType in selectedEventTypeList)
-                    {
-                        if (!String.IsNullOrEmpty(eventTypesList))
-                            eventTypesList += ", ";
+            if (TimeRangeMaxFilter != 0 && sEvent.UnixTime > TimeRangeMaxFilter)
+                return false;
 
-                        eventTypesList += eventType.ToString();
-                    }
-                    selectedObject.SubItems[3].Text = eventTypesList;
-                }
-            }
+            if (HasFilters)
+                return TickFilters.Any(filter => filter.Evaluate(sEvent));
+
+            return true;
         }
 
-        private void cmbEventTypes_SelectedIndexChanged(object sender, EventArgs e)
+        private void LstEventFilters_ItemChecked(object sender, ItemCheckedEventArgs e)
+        {
+            //if (lstObjectFilters.SelectedItems.Count == 0)
+            //    return;
+
+            //// Get the selected item.
+            //ListViewItem selectedObject = lstObjectFilters.SelectedItems[0];
+            //HashSet<uint> selectedEventTypeList = selectedObject.Tag as HashSet<uint>;
+
+            //ListViewItem item = e.Item;
+            //uint eventId = (uint)item.Tag;
+
+            //if (item.Checked)
+            //    selectedEventTypeList.Add(eventId);
+            //else
+            //    selectedEventTypeList.Remove(eventId);
+
+            //if (selectedEventTypeList.Count == DataHolder.GetEventCount())
+            //    selectedObject.SubItems[3].Text = "All";
+            //else
+            //{
+            //    string eventTypesList = "";
+            //    foreach (var eventType in selectedEventTypeList)
+            //    {
+            //        if (!String.IsNullOrEmpty(eventTypesList))
+            //            eventTypesList += ", ";
+
+            //        eventTypesList += eventType.ToString();
+            //    }
+            //    selectedObject.SubItems[3].Text = eventTypesList;
+            //}
+
+            //EnqueueFiltering();
+        }
+
+        private void CmbRowColors_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            SelectedRowColor = (RowColorType)cmbRowColors.SelectedIndex;
+
+            switch (SelectedRowColor)
+            {
+                case RowColorType.None:
+                    eventsListView.UseAlternatingBackColors = false;
+                    break;
+                case RowColorType.Alternating:
+                    eventsListView.UseAlternatingBackColors = true;
+                    break;
+                case RowColorType.SourceBased:
+                    eventsListView.UseAlternatingBackColors = false;
+                    break;
+            }
+
+            eventsListView.LightRefreshObjects();
+        }
+
+        private void CmbEventTypes_SelectedIndexChanged(object sender, EventArgs e)
         {
             UpdateEventTypesList();
         }
 
-        private void lstObjectFilters_SelectedIndexChanged(object sender, EventArgs e)
+        private void UpdateTimeRangeValues()
         {
-            if (lstObjectFilters.SelectedItems.Count == 0)
+            TxtTimeRangeMin.Text = TimeRangeTrackBar.RangeMinimum.ToString();
+            TxtTimeRangeMax.Text = TimeRangeTrackBar.RangeMaximum.ToString();
+
+            if (uint.TryParse(TxtTimeRangeMin.Text, out uint unixTime))
             {
-                grpEventFilters.Enabled = false;
-                return;
+                DateTime dt = Utility.GetDateTimeFromUnixTime(unixTime);
+                LblRangeMinDt.Text = dt.ToString();
             }
 
-            grpEventFilters.Enabled = true;
-            UpdateEventTypesList();
-        }
-
-        private void btnAdd_Click(object sender, EventArgs e)
-        {
-            uint objectGuidInt = 0;
-            UInt32.TryParse(txtObjectGuid.Text, out objectGuidInt);
-            uint objectIdInt = 0;
-            UInt32.TryParse(txtObjectId.Text, out objectIdInt);
-
-            string objectGuid = objectGuidInt != 0 ? objectGuidInt.ToString() : "Any";
-            string objectId = objectIdInt != 0 ? objectIdInt.ToString() : "Any";
-            string objectType = cmbObjectType.Text;
-
-            foreach (ListViewItem item in lstObjectFilters.Items)
+            if (uint.TryParse(TxtTimeRangeMax.Text, out unixTime))
             {
-                if (item.Text == objectGuid &&
-                    item.SubItems[1].Text == objectId &&
-                    item.SubItems[2].Text == objectType)
-                {
-                    MessageBox.Show("Duplicate object filter.", "Cannot add filter", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
+                DateTime dt = Utility.GetDateTimeFromUnixTime(unixTime);
+                LblRangeMaxDt.Text = dt.ToString();
             }
-
-            ListViewItem newItem = new ListViewItem();
-            newItem.Text = objectGuid;
-            newItem.SubItems.Add(objectId);
-            newItem.SubItems.Add(objectType);
-
-            if (lstObjectFilters.SelectedItems.Count > 0)
-            {
-                ListViewItem selectedItem = lstObjectFilters.SelectedItems[0];
-                newItem.SubItems.Add(selectedItem.SubItems[3].Text);
-                newItem.Tag = new HashSet<uint>((HashSet<uint>)selectedItem.Tag);
-            }
-            else
-            {
-                newItem.SubItems.Add("All");
-                HashSet<uint> eventTypesList = new HashSet<uint>();
-                foreach (var eventType in SniffedEventTypesDict)
-                    eventTypesList.Add(eventType.Key);
-                newItem.Tag = eventTypesList;
-            }
-
-            lstObjectFilters.Items.Add(newItem);
-            lstObjectFilters.FocusedItem = newItem;
-            newItem.Selected = true;
-            lstObjectFilters.Select();
-        }
-
-        private void btnRemove_Click(object sender, EventArgs e)
-        {
-            if (lstObjectFilters.SelectedItems.Count == 0)
-                return;
-
-            grpEventFilters.Enabled = false;
-            ListViewItem deleteItem = lstObjectFilters.SelectedItems[0];
-            lstObjectFilters.Items.Remove(deleteItem);
-        }
-
-        private void btnRefresh_Click(object sender, EventArgs e)
-        {
-            Text = "Sniff Browser - Requesting Event Data";
-            txtEventDescription.Text = "";
-            btnRefresh.Enabled = false;
-            lstEvents.Items.Clear();
-
-            ByteBuffer packet = new ByteBuffer();
-            packet.WriteUInt8((byte)GUIOpcode.CMSG_REQUEST_EVENT_DATA);
-            packet.WriteUInt32(UInt32.Parse(txtStartTime.Text));
-            packet.WriteUInt32(UInt32.Parse(txtEndTime.Text));
-            packet.WriteUInt32((uint)lstObjectFilters.Items.Count);
-            foreach (ListViewItem objectFilter in lstObjectFilters.Items)
-            {
-                uint objectGuid = 0;
-                UInt32.TryParse(objectFilter.Text, out objectGuid);
-                packet.WriteUInt32(objectGuid);
-
-                uint objectId = 0;
-                UInt32.TryParse(objectFilter.SubItems[1].Text, out objectId);
-                packet.WriteUInt32(objectId);
-
-                uint objectType = (uint)GetObjectTypeFilterValueFromString(objectFilter.SubItems[2].Text);
-                packet.WriteUInt32(objectType);
-
-                HashSet<uint> eventTypeList = objectFilter.Tag as HashSet<uint>;
-                packet.WriteUInt32((uint)eventTypeList.Count);
-                foreach (uint eventType in eventTypeList)
-                    packet.WriteUInt32(eventType);
-            }
-
-            SendPacket(packet);
         }
 
         private void UpdateStartTime()
         {
-            uint startUnixTime = 0;
-            UInt32.TryParse(txtStartTime.Text, out startUnixTime);
-
-            DateTime startTime = Utility.GetDateTimeFromUnixTime(startUnixTime);
-            txtStartTimeDate.Text = startTime.ToString();
+            if (uint.TryParse(TStripTxtStartTimeValue.Text, out uint startUnixTime))
+            {
+                DateTime startTime = Utility.GetDateTimeFromUnixTime(startUnixTime);
+                TStripStartTimeLblFormat.Text = startTime.ToString();
+            }
         }
 
         private void UpdateEndTime()
         {
-            uint endUnixTime = 0;
-            UInt32.TryParse(txtEndTime.Text, out endUnixTime);
-
-            DateTime endTime = Utility.GetDateTimeFromUnixTime(endUnixTime);
-            txtEndTimeDate.Text = endTime.ToString();
-        }
-
-        private void txtStartTime_TextChanged(object sender, EventArgs e)
-        {
-            UpdateStartTime();
-        }
-
-        private void txtEndTime_TextChanged(object sender, EventArgs e)
-        {
-            UpdateEndTime();
-        }
-
-        private void btnClear_Click(object sender, EventArgs e)
-        {
-            foreach (ListViewItem item in lstEventFilters.Items)
-                item.Checked = false;
-        }
-
-        private void btnSelectAll_Click(object sender, EventArgs e)
-        {
-            foreach (ListViewItem item in lstEventFilters.Items)
-                item.Checked = true;
-        }
-
-
-        private void lstEvents_DrawItem(object sender, DrawListViewItemEventArgs e)
-        {
-            e.DrawDefault = true;
-
-            switch ((RowColorType)cmbRowColors.SelectedIndex)
+            if (uint.TryParse(TStripTxtEndTimeValue.Text, out uint endUnixTime))
             {
-                case RowColorType.None:
-                {
-                    e.Item.BackColor = Color.White;
-                    e.Item.UseItemStyleForSubItems = true;
-                    return;
-                }
-                case RowColorType.Alternating:
-                {
-                    if ((e.ItemIndex % 2) == 1)
-                    {
-                        e.Item.BackColor = RowColor_Grey;
-                        e.Item.UseItemStyleForSubItems = true;
-                    }
-                    return;
-                }
-                case RowColorType.SourceBased:
-                {
-                    SniffedEvent sniffedEvent = e.Item.Tag as SniffedEvent;
-                    if (sniffedEvent.sourceGuid.IsEmpty())
-                        e.Item.BackColor = Color.White;
-                    else if (sniffedEvent.sourceGuid.GetObjectType() == ObjectType.GameObject)
-                        e.Item.BackColor = RowColor_GameObject;
-                    else if (sniffedEvent.sourceGuid.GetObjectType() == ObjectType.Creature)
-                        e.Item.BackColor = RowColor_Creature;
-                    else if (sniffedEvent.sourceGuid.GetObjectType() == ObjectType.Player)
-                        e.Item.BackColor = RowColor_Player;
-                    else
-                        e.Item.BackColor = RowColor_Misc;
-                    e.Item.UseItemStyleForSubItems = true;
-                    return;
-                }
+                DateTime endTime = Utility.GetDateTimeFromUnixTime(endUnixTime);
+                TStripEndTimeLblFormat.Text = endTime.ToString();
             }
         }
 
-        private void lstEvents_DrawColumnHeader(object sender, DrawListViewColumnHeaderEventArgs e)
+        private void BtnClear_Click(object sender, EventArgs e)
         {
-            e.DrawDefault = true;
-        }
-
-        private void lstEvents_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            if (lstEvents.SelectedItems.Count == 0)
+            if (ObjectFiltersListView.SelectedObject is Filter filter)
             {
-                txtEventDescription.Text = "";
-                return;
+                foreach (SniffedEventTypeFilterEntry visibleFilter in EventTypeFilterListView.FilteredObjects)
+                    filter.DisableSniffedEventType(visibleFilter.FilterType);
+                EventTypeFilterListView.Refresh();
+                EnqueueFiltering();
             }
-
-            ListViewItem selectedItem = lstEvents.SelectedItems[0];
-            SniffedEvent sniffedEvent = (SniffedEvent)selectedItem.Tag;
-
-            txtEventDescription.Text = "-- Generic Information --" + Environment.NewLine;
-            txtEventDescription.Text += "Event Type: " + SniffedEventTypesDict[sniffedEvent.eventType] + Environment.NewLine;
-            txtEventDescription.Text += "Event Time: " + sniffedEvent.eventTime.ToString() + " (" + Utility.GetDateTimeFromUnixTimeMs(sniffedEvent.eventTime).ToString() + ")" + Environment.NewLine;
-            txtEventDescription.Text += "Source: " + sniffedEvent.sourceGuid.ToString() + Environment.NewLine;
-            txtEventDescription.Text += "Target: " + sniffedEvent.targetGuid.ToString() + Environment.NewLine + Environment.NewLine;
-            txtEventDescription.Text += "-- Event Specific Data --" + Environment.NewLine + sniffedEvent.longDescription;
         }
 
-        private void lstEvents_MouseClick(object sender, MouseEventArgs e)
+        private void BtnSelectAll_Click(object sender, EventArgs e)
         {
-            if (e.Button == MouseButtons.Right)
+            if (ObjectFiltersListView.SelectedObject is Filter filter)
             {
-                foreach (ListViewItem item in lstEvents.Items)
-                {
-                    if (item.Bounds.Contains(new Point(e.X, e.Y)))
-                    {
-                        ContextMenu eventListContextMenu = new ContextMenu();
-                        eventListContextMenu.MenuItems.Add("Copy Event Time",
-                            delegate (object sender2, EventArgs e2)
-                            {
-                                CopyEventTime(sender, e, (SniffedEvent)item.Tag);
-                            });
-                        eventListContextMenu.MenuItems.Add("Copy Event Source",
-                            delegate (object sender2, EventArgs e2)
-                            {
-                                CopyEventSource(sender, e, (SniffedEvent)item.Tag);
-                            });
-                        eventListContextMenu.MenuItems.Add("Copy Event Target",
-                            delegate (object sender2, EventArgs e2)
-                            {
-                                CopyEventTarget(sender, e, (SniffedEvent)item.Tag);
-                            });
-                        eventListContextMenu.MenuItems.Add("Remove This Row",
-                            delegate (object sender2, EventArgs e2)
-                            {
-                                lstEvents.Items.Remove(item);
-                            });
-                        eventListContextMenu.MenuItems.Add("Remove This Type",
-                           delegate (object sender2, EventArgs e2)
-                           {
-                               RemoveEventsWithType(sender, e, ((SniffedEvent)item.Tag).eventType);
-                           });
-                        eventListContextMenu.MenuItems.Add("Remove This Source",
-                           delegate (object sender2, EventArgs e2)
-                           {
-                               RemoveEventsWithSource(sender, e, ((SniffedEvent)item.Tag).sourceGuid);
-                           });
-                        eventListContextMenu.MenuItems.Add("Remove This Target",
-                           delegate (object sender2, EventArgs e2)
-                           {
-                               RemoveEventsWithTarget(sender, e, ((SniffedEvent)item.Tag).targetGuid);
-                           });
-                        eventListContextMenu.Show(lstEvents, new Point(e.X, e.Y));
-                        break;
-                    }
-                }
+                foreach (SniffedEventTypeFilterEntry visibleFilter in EventTypeFilterListView.FilteredObjects)
+                    filter.EnableSniffedEventType(visibleFilter.FilterType);
+                EventTypeFilterListView.Refresh();
+                EnqueueFiltering();
             }
         }
 
         private void SetObjectFilterFieldsFromGuid(ObjectGuid guid)
         {
-            int index = (int)GetObjectTypeFilterValueFromString(guid.GetObjectType().ToString());
-            cmbObjectType.SelectedIndex = index;
-            txtObjectGuid.Text = guid.GetCounter().ToString();
-            txtObjectId.Text = guid.GetEntry().ToString();
+            //int index = (int)guid.GetObjectType().ToString().GetObjectTypeFilterValueFromString();
+            //cmbObjectType.SelectedIndex = index;
+            //txtObjectGuid.Text = guid.GetCounter().ToString();
+            //txtObjectId.Text = guid.GetEntry().ToString();
         }
 
-        private void CopyEventTime(object sender, MouseEventArgs e, SniffedEvent sniffedEvent)
+        private void UpdateTimeDisplayForAllEvents(object sender, EventArgs e)
         {
-            string unixTime = (sniffedEvent.eventTime / 1000).ToString();
-            txtStartTime.Text = unixTime;
-            txtEndTime.Text = unixTime;
-        }
+            SelectedTimeType = cmbTimeType.SelectedIndex;
+            SelectedTimeDisplay = cmbTimeDisplay.SelectedIndex;
 
-        private void CopyEventSource(object sender, MouseEventArgs e, SniffedEvent sniffedEvent)
-        {
-            if (sniffedEvent.sourceGuid.IsEmpty())
-            {
-                MessageBox.Show("Event has no source!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            SetObjectFilterFieldsFromGuid(sniffedEvent.sourceGuid);
-        }
-
-        private void CopyEventTarget(object sender, MouseEventArgs e, SniffedEvent sniffedEvent)
-        {
-            if (sniffedEvent.targetGuid.IsEmpty())
-            {
-                MessageBox.Show("Event has no target!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            SetObjectFilterFieldsFromGuid(sniffedEvent.targetGuid);
-        }
-
-        private void RemoveEventsWithSource(object sender, MouseEventArgs e, ObjectGuid sourceGuid)
-        {
-            if (sourceGuid.IsEmpty())
-            {
-                MessageBox.Show("Event has no source!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            List<ListViewItem> itemsToRemove = new List<ListViewItem>();
-            for (int i = 0; i < lstEvents.Items.Count; i++)
-            {
-                SniffedEvent sniffedEvent = (SniffedEvent)lstEvents.Items[i].Tag;
-                if (sniffedEvent.sourceGuid == sourceGuid)
-                    itemsToRemove.Add(lstEvents.Items[i]);
-            }
-
-            foreach (var item in itemsToRemove)
-                lstEvents.Items.Remove(item);
-        }
-
-        private void RemoveEventsWithTarget(object sender, MouseEventArgs e, ObjectGuid targetGuid)
-        {
-            if (targetGuid.IsEmpty())
-            {
-                MessageBox.Show("Event has no target!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            List<ListViewItem> itemsToRemove = new List<ListViewItem>();
-            for (int i = 0; i < lstEvents.Items.Count; i++)
-            {
-                SniffedEvent sniffedEvent = (SniffedEvent)lstEvents.Items[i].Tag;
-                if (sniffedEvent.targetGuid == targetGuid)
-                    itemsToRemove.Add(lstEvents.Items[i]);
-            }
-
-            foreach (var item in itemsToRemove)
-                lstEvents.Items.Remove(item);
-        }
-
-        private void RemoveEventsWithType(object sender, MouseEventArgs e, uint eventType)
-        {
-            List<ListViewItem> itemsToRemove = new List<ListViewItem>();
-            for (int i = 0; i < lstEvents.Items.Count; i++)
-            {
-                SniffedEvent sniffedEvent = (SniffedEvent)lstEvents.Items[i].Tag;
-                if (sniffedEvent.eventType == eventType)
-                    itemsToRemove.Add(lstEvents.Items[i]);
-            }
-
-            foreach (var item in itemsToRemove)
-                lstEvents.Items.Remove(item);
-        }
-
-        private void lstEvents_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.KeyData == (Keys.Control | Keys.A))
-            {
-                foreach (ListViewItem item in lstEvents.Items)
-                    item.Selected = true;
-            }
-            else if (e.KeyData == (Keys.Control | Keys.F))
-            {
-                string searchText = "";
-                if (Utility.ShowInputDialog(ref searchText, "Search") == DialogResult.OK && !String.IsNullOrEmpty(searchText))
-                {
-                    for (int i = 0; i < lstEvents.Items.Count; i++)
-                    {
-                        ListViewItem item = lstEvents.Items[i];
-                        if (item.Text.Contains(searchText) ||
-                            item.SubItems[0].Text.Contains(searchText) ||
-                            item.SubItems[1].Text.Contains(searchText) ||
-                            item.SubItems[2].Text.Contains(searchText))
-                        {
-                            lstEvents.EnsureVisible(i);
-                            item.Selected = true;
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-
-        private void UpdateTimeDisplayForAllEvents()
-        {
-            ulong firstEventTime = 0;
-            ulong previousEventTime = 0;
-            for (int i = 0; i < lstEvents.Items.Count; i++)
-            {
-                ListViewItem lvi = lstEvents.Items[i];
-                SniffedEvent sniffedEvent = (SniffedEvent)lvi.Tag;
-
-                if (i == 0)
-                {
-                    firstEventTime = sniffedEvent.eventTime;
-                    previousEventTime = sniffedEvent.eventTime;
-                }
-
-                lvi.SubItems[1].Text = FormatTimeString(sniffedEvent.eventTime, firstEventTime, previousEventTime);
-                previousEventTime = sniffedEvent.eventTime;
-            }
-        }
-
-        private void cmbTimeType_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            UpdateTimeDisplayForAllEvents();
-        }
-
-        private void cmbTimeDisplay_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            UpdateTimeDisplayForAllEvents();
+            if (eventsListView.Objects is ArrayList sniffedEvents && sniffedEvents.Count > 0)
+                eventsListView.RefreshObjects(new SniffedEvent[1] { (SniffedEvent)sniffedEvents[0] });
         }
 
         // Replay Controls
@@ -1094,30 +936,18 @@ namespace SniffBrowser
             ByteBuffer packet = new ByteBuffer();
             packet.WriteUInt8((byte)GUIOpcode.CMSG_CHAT_COMMAND);
             packet.WriteCString(command);
-            SendPacket(packet);
+            NetworkClient?.SendPacket(packet);
         }
 
-        private void btnReplayPlay_Click(object sender, EventArgs e)
+        private void SendRawCommand_Click(object sender, EventArgs e)
         {
-            SendChatCommand("play");
+            if (!(sender is Control ctrl) || !(ctrl.Tag is string command))
+                return;
+
+            SendChatCommand(command);
         }
 
-        private void btnReplayPause_Click(object sender, EventArgs e)
-        {
-            SendChatCommand("stop");
-        }
-
-        private void btnReplayResetTime_Click(object sender, EventArgs e)
-        {
-            SendChatCommand("resettime");
-        }
-
-        private void btnReplayGoToClientPosition_Click(object sender, EventArgs e)
-        {
-            SendChatCommand("gotoclient");
-        }
-
-        private void btnReplaySkipTime_Click(object sender, EventArgs e)
+        private void BtnReplaySkipTime_Click(object sender, EventArgs e)
         {
             string seconds = "10";
             if (Utility.ShowInputDialog(ref seconds, "Seconds to skip") != DialogResult.OK)
@@ -1126,18 +956,15 @@ namespace SniffBrowser
             SendChatCommand("skiptime " + seconds);
         }
 
-        private void btnReplayJumpToEventTime_Click(object sender, EventArgs e)
+        private void BtnReplayJumpToEventTime_Click(object sender, EventArgs e)
         {
-            if (lstEvents.SelectedItems.Count == 0)
+            if (!(eventsListView.SelectedObject is SniffedEvent sniffedEvent))
             {
                 MessageBox.Show("No event selected.");
                 return;
             }
 
-            ListViewItem selectedItem = lstEvents.SelectedItems[0];
-            SniffedEvent sniffedEvent = (SniffedEvent)selectedItem.Tag;
-            uint unixTime = (uint)(sniffedEvent.eventTime / 1000);
-            SendChatCommand("settime " + unixTime.ToString());
+            SendChatCommand("settime " + sniffedEvent.UnixTime.ToString());
         }
 
         private void SendTeleportToGuid(ObjectGuid guid)
@@ -1145,64 +972,58 @@ namespace SniffBrowser
             ByteBuffer packet = new ByteBuffer();
             packet.WriteUInt8((byte)GUIOpcode.CMSG_GOTO_GUID);
             packet.WriteUInt64(guid.RawGuid);
-            SendPacket(packet);
+            NetworkClient?.SendPacket(packet);
         }
 
-        private void btnReplayJumpToEventSource_Click(object sender, EventArgs e)
+        private void BtnReplayJumpToEventSource_Click(object sender, EventArgs e)
         {
-            if (lstEvents.SelectedItems.Count == 0)
+            if (!(eventsListView.SelectedObject is SniffedEvent sniffedEvent))
             {
                 MessageBox.Show("No event selected.");
                 return;
             }
 
-            ListViewItem selectedItem = lstEvents.SelectedItems[0];
-            SniffedEvent sniffedEvent = (SniffedEvent)selectedItem.Tag;
-
-            if (sniffedEvent.sourceGuid.IsEmpty())
+            if (sniffedEvent.SourceGuid.IsEmpty)
             {
                 MessageBox.Show("Event has no source.");
                 return;
             }
 
-            SendTeleportToGuid(sniffedEvent.sourceGuid);
+            SendTeleportToGuid(sniffedEvent.SourceGuid);
         }
 
-        private void btnReplayJumpToEventTarget_Click(object sender, EventArgs e)
+        private void BtnReplayJumpToEventTarget_Click(object sender, EventArgs e)
         {
-            if (lstEvents.SelectedItems.Count == 0)
+            if (!(eventsListView.SelectedObject is SniffedEvent sniffedEvent))
             {
                 MessageBox.Show("No event selected.");
                 return;
             }
 
-            ListViewItem selectedItem = lstEvents.SelectedItems[0];
-            SniffedEvent sniffedEvent = (SniffedEvent)selectedItem.Tag;
-
-            if (sniffedEvent.targetGuid.IsEmpty())
+            if (sniffedEvent.TargetGuid.IsEmpty)
             {
                 MessageBox.Show("Event has no target.");
                 return;
             }
 
-            SendTeleportToGuid(sniffedEvent.targetGuid);
+            SendTeleportToGuid(sniffedEvent.TargetGuid);
         }
 
         // Script And Waypoint Making
 
-        private void btnMakeScript_Click(object sender, EventArgs e)
+        private void BtnMakeScript_Click(object sender, EventArgs e)
         {
             HandleMakeScriptOrWaypoints(false);
         }
 
-        private void btnMakeWaypoints_Click(object sender, EventArgs e)
+        private void BtnMakeWaypoints_Click(object sender, EventArgs e)
         {
             HandleMakeScriptOrWaypoints(true);
         }
 
         private void HandleMakeScriptOrWaypoints(bool makeWaypoints)
         {
-            if (lstEvents.SelectedItems.Count == 0)
+            if (!(eventsListView.SelectedObjects is ArrayList sniffedEvents) || sniffedEvents.Count == 0)
             {
                 MessageBox.Show("No event selected.");
                 return;
@@ -1211,12 +1032,12 @@ namespace SniffBrowser
             string mainScriptIdStr = "1";
             if (Utility.ShowInputDialog(ref mainScriptIdStr, "Main Script Id") != DialogResult.OK)
                 return;
-            uint mainScriptId = UInt32.Parse(mainScriptIdStr);
+            uint mainScriptId = uint.Parse(mainScriptIdStr);
 
             string genericScriptIdStr = "50000";
             if (Utility.ShowInputDialog(ref genericScriptIdStr, "Generic Script Id") != DialogResult.OK)
                 return;
-            uint genericScriptId = UInt32.Parse(genericScriptIdStr);
+            uint genericScriptId = uint.Parse(genericScriptIdStr);
 
             string tableName = "generic_scripts";
             if (Utility.ShowInputDialog(ref tableName, "Table Name") != DialogResult.OK)
@@ -1227,92 +1048,336 @@ namespace SniffBrowser
                 return;
 
             bool hasGameObjectSpawn = false;
-            List<object> guidList = new List<object>();
-            guidList.Add(ObjectGuid.Empty);
-            foreach (ListViewItem lvi in lstEvents.SelectedItems)
+            List<object> guidList = new List<object>
             {
-                SniffedEvent sniffedEvent = (SniffedEvent)lvi.Tag;
-                if (!sniffedEvent.sourceGuid.IsEmpty() &&
-                    !guidList.Contains(sniffedEvent.sourceGuid))
+                ObjectGuid.Empty
+            };
+
+            List<uint> Ids = new List<uint>();
+
+            foreach (SniffedEvent sniffedEvent in eventsListView.SelectedObjects.OfType<SniffedEvent>())
+            {
+                if (!sniffedEvent.SourceGuid.IsEmpty &&
+                    !guidList.Contains(sniffedEvent.SourceGuid))
                 {
-                    guidList.Add(sniffedEvent.sourceGuid);
+                    guidList.Add(sniffedEvent.SourceGuid);
                 }
-                if (!sniffedEvent.targetGuid.IsEmpty() &&
-                    !guidList.Contains(sniffedEvent.targetGuid))
+                if (!sniffedEvent.TargetGuid.IsEmpty &&
+                    !guidList.Contains(sniffedEvent.TargetGuid))
                 {
-                    guidList.Add(sniffedEvent.targetGuid);
+                    guidList.Add(sniffedEvent.TargetGuid);
                 }
-                if (sniffedEvent.sourceGuid.GetObjectType() == ObjectType.GameObject &&
-                    lvi.SubItems[2].Text.Contains("spawns"))
+                if (sniffedEvent.SourceGuid.GetObjectType() == ObjectType.GameObject &&
+                    sniffedEvent.ShortDescription.Contains("spawns"))
+                {
                     hasGameObjectSpawn = true;
+                }
+                Ids.Add(sniffedEvent.UUID);
             }
 
-            FormListSelector frmListSelector1 = new FormListSelector(guidList, "Make Script", "Select source object:");
-            if (frmListSelector1.ShowDialog() != DialogResult.OK)
-                return;
-
-            ObjectGuid sourceGuid = (ObjectGuid)guidList[frmListSelector1.ReturnValue];
-
-            FormListSelector frmListSelector2 = new FormListSelector(guidList, "Make Script", "Select target object:");
-            if (frmListSelector2.ShowDialog() != DialogResult.OK)
-                return;
-
-            byte saveGameObjectSpawnsToDatabase = 0;
-            if (hasGameObjectSpawn &&
-                MessageBox.Show("Save gameobject spawns to database?", "Make Script", MessageBoxButtons.YesNo) == DialogResult.Yes)
-                saveGameObjectSpawnsToDatabase = 1;
-
-            ObjectGuid targetGuid = (ObjectGuid)guidList[frmListSelector1.ReturnValue];
-
-            ByteBuffer packet = new ByteBuffer();
-            packet.WriteUInt8((byte)GUIOpcode.CMSG_MAKE_SCRIPT);
-            packet.WriteUInt32(mainScriptId);
-            packet.WriteUInt32(genericScriptId);
-            packet.WriteCString(tableName);
-            packet.WriteCString(commentPrefix);
-            packet.WriteUInt64(sourceGuid.RawGuid);
-            packet.WriteUInt64(targetGuid.RawGuid);
-            packet.WriteUInt8(saveGameObjectSpawnsToDatabase);
-            packet.WriteUInt8(makeWaypoints ? (byte)1 : (byte)0);
-            packet.WriteUInt32((uint)lstEvents.SelectedItems.Count);
-            foreach (ListViewItem lvi in lstEvents.SelectedItems)
+            using (var frmListSelector1 = new FormListSelector(guidList, "Make Script", "Select source object:"))
             {
-                SniffedEvent sniffedEvent = (SniffedEvent)lvi.Tag;
-                packet.WriteUInt32(sniffedEvent.uniqueIdentifier);
+                if (frmListSelector1.ShowDialog() != DialogResult.OK)
+                    return;
+
+                ObjectGuid sourceGuid = (ObjectGuid)guidList[frmListSelector1.ReturnValue];
+
+                using (var frmListSelector2 = new FormListSelector(guidList, "Make Script", "Select target object:"))
+                    if (frmListSelector2.ShowDialog() != DialogResult.OK)
+                        return;
+
+                byte saveGameObjectSpawnsToDatabase = 0;
+                if (hasGameObjectSpawn &&
+                    MessageBox.Show("Save gameobject spawns to database?", "Make Script", MessageBoxButtons.YesNo) == DialogResult.Yes)
+                    saveGameObjectSpawnsToDatabase = 1;
+
+                ObjectGuid targetGuid = (ObjectGuid)guidList[frmListSelector1.ReturnValue];
+
+                ByteBuffer packet = new ByteBuffer();
+                packet.WriteUInt8((byte)GUIOpcode.CMSG_MAKE_SCRIPT);
+                packet.WriteUInt32(mainScriptId);
+                packet.WriteUInt32(genericScriptId);
+                packet.WriteCString(tableName);
+                packet.WriteCString(commentPrefix);
+                packet.WriteUInt64(sourceGuid.RawGuid);
+                packet.WriteUInt64(targetGuid.RawGuid);
+                packet.WriteUInt8(saveGameObjectSpawnsToDatabase);
+                packet.WriteUInt8(makeWaypoints ? (byte)1 : (byte)0);
+                // TODO packet.WriteUInt32((uint)lstEvents.SelectedItems.Count);
+                foreach (var id in Ids)
+                    packet.WriteUInt32(id);
+
+                NetworkClient?.SendPacket(packet);
             }
-            SendPacket(packet);
         }
 
-        private void FormSniffBrowser_ResizeEnd(object sender, EventArgs e)
+        private void TxtFilter_TextChanged(object sender, EventArgs e)
         {
-            lstEvents.Size = new Size(lstEvents.MinimumSize.Width + (this.Size.Width - this.MinimumSize.Width), lstEvents.MinimumSize.Height + (this.Size.Height - this.MinimumSize.Height));
-            lstEvents.Columns[2].Width = 622 + (this.Size.Width - this.MinimumSize.Width);
-            txtEventDescription.Size = new Size(txtEventDescription.MinimumSize.Width + (this.Size.Width - this.MinimumSize.Width), txtEventDescription.Size.Height);
-            txtEventDescription.Location = new Point(txtEventDescription.Location.X, lstEvents.Location.Y + lstEvents.Size.Height + 6);
-            btnMakeScript.Location = new Point(btnMakeScript.Location.X, txtEventDescription.Location.Y + txtEventDescription.Size.Height + 10);
-            btnMakeWaypoints.Location = new Point(btnMakeWaypoints.Location.X, txtEventDescription.Location.Y + txtEventDescription.Size.Height + 10);
-            grpOptions.Location = new Point(txtEventDescription.Location.X + txtEventDescription.Size.Width + 6, txtEventDescription.Location.Y);
-            grpReplayControl.Location = new Point(grpOptions.Location.X, grpOptions.Location.Y + grpOptions.Size.Height + 6);
-            lblStartTime.Location = new Point(lstEvents.Location.X + lstEvents.Size.Width + 11, lblStartTime.Location.Y);
-            lblEndTime.Location = new Point(lstEvents.Location.X + lstEvents.Size.Width + 14, lblEndTime.Location.Y);
-            txtStartTime.Location = new Point(lblStartTime.Location.X + lblStartTime.Size.Width + 6, txtStartTime.Location.Y);
-            txtEndTime.Location = new Point(lblEndTime.Location.X + lblEndTime.Size.Width + 6, txtEndTime.Location.Y);
-            txtStartTimeDate.Location = new Point(txtStartTime.Location.X + txtStartTime.Size.Width + 6, txtStartTimeDate.Location.Y);
-            txtEndTimeDate.Location = new Point(txtEndTime.Location.X + txtEndTime.Size.Width + 6, txtEndTimeDate.Location.Y);
-            grpObjectFilters.Location = new Point(lstEvents.Location.X + lstEvents.Size.Width + 17, grpObjectFilters.Location.Y);
-            grpObjectFilters.Size = new Size(grpObjectFilters.Size.Width, grpObjectFilters.MinimumSize.Height + (this.Size.Height - this.MinimumSize.Height));
-            lstObjectFilters.Size = new Size(lstObjectFilters.Size.Width, lstObjectFilters.MinimumSize.Height + (this.Size.Height - this.MinimumSize.Height));
-            grpEventFilters.Location = new Point(lstEvents.Location.X + lstEvents.Size.Width + 17, grpObjectFilters.Location.Y + grpObjectFilters.Size.Height + 6);
-            btnRefresh.Location = new Point(this.Size.Width - 93, btnMakeScript.Location.Y);
+            // Prevent from continous filtering while the user types, only trigger if the timer succeeds its interval. 0.7 sec.
+            EnqueueFiltering();
+
+            if (string.IsNullOrEmpty(TxtFilter.Text))
+                PboxFilterBulb.Visible = false;
+            else
+                PboxFilterBulb.Visible = true;
         }
 
-        FormWindowState LastWindowState = FormWindowState.Minimized;
-        private void FormSniffBrowser_Resize(object sender, EventArgs e)
+        private int PreviousSelection = 0;
+        private void EventsListView_SelectionChanged(object sender, EventArgs e)
         {
-            if (WindowState != LastWindowState)
+            if (!(eventsListView.SelectedObject is SniffedEvent sniffedEvent))
             {
-                LastWindowState = WindowState;
-                FormSniffBrowser_ResizeEnd(sender, e);
+                TBtnJumpEventSource.Enabled = false;
+                TBtnJumpEventTarget.Enabled = false;
+                TBtnJumpEventTime.Enabled = false;
+
+                TxtEventDescription.Text = "";
+                return;
+            }
+
+            if(PreviousSelection != eventsListView.SelectedIndex)
+            {
+                Console.WriteLine("Trigger");
+                PreviousSelection = eventsListView.SelectedIndex;
+                SplitEventsAndDesc.Panel2Collapsed = false;
+                SplitEventsAndDesc.Panel1Collapsed = true;
+            }
+
+            TBtnJumpEventSource.Enabled = true;
+            TBtnJumpEventTarget.Enabled = true;
+            TBtnJumpEventTime.Enabled = true;
+            TxtEventDescription.Text = sniffedEvent.ToString();
+             
+            NetworkClient?.RequestEventDescription(sniffedEvent.UUID);
+        }
+
+        private void EnqueueFiltering()
+        {
+            FilteringTimer.Stop();
+            FilteringTimer.Start();
+        }
+
+        private void FilteringTimer_Tick(object sender, EventArgs e)
+        {
+            RefreshFiltering();
+        }
+
+        private List<Filter> TickFilters;
+        private bool HasFilters = false;
+        private string FilterText = string.Empty;
+        private bool NoTextMatch = true;
+        private void RefreshFiltering()
+        {
+            Cursor = Cursors.WaitCursor;
+
+            if (FilteringTimer.Enabled)
+                FilteringTimer.Stop();
+
+            FilterText = !string.IsNullOrEmpty(TxtFilter.Text) ? TxtFilter.Text : string.Empty;
+            NoTextMatch = string.IsNullOrEmpty(TxtFilter.Text);
+
+            HasFilters = DataHolder.HasActiveFilters();
+            if (HasFilters)
+                TickFilters = DataHolder.GetFilters().ToList();
+
+            this.BeginInvoke(new Action(() =>
+            {
+                eventsListView.ModelFilter = new ModelFilter(o =>
+                {
+                    if (!(o is SniffedEvent sEvent))
+                        return false;
+
+                    if (!IsVisibleSniffedEvent(sEvent))
+                        return false;
+
+                    return NoTextMatch || sEvent.ShortDescription.Contains(FilterText, StringComparison.InvariantCultureIgnoreCase);
+                });
+
+
+                eventsListView?.UpdateFilteredEventsTimes();
+
+                Cursor = Cursors.Arrow;
+                Text = $"Displaying {eventsListView.GetItemCount()} Events.";
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized);
+            }));
+        }
+
+        private void FormSniffBrowser_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            IsClosing = true;
+            try { NetworkClient?.Dispose(); } catch { }
+            try { NetworkJobsCancellationToken?.Cancel(false); } catch { }
+            try { FilteringTimer?.Dispose(); } catch { }
+            try { ImageList?.Dispose(); } catch { }
+            Thread.Sleep(1000);
+            try { PendingNetworkJobs?.Dispose(); } catch { }
+            try { NetworkJobsCancellationToken?.Dispose(); } catch { }
+        }
+
+        private void TStripTxtStartTimeValue_TextChanged(object sender, EventArgs e)
+        {
+            UpdateStartTime();
+        }
+
+        private void TStripTxtEndTimeValue_TextChanged(object sender, EventArgs e)
+        {
+            UpdateEndTime();
+        }
+
+        private void TimeRangeTrackBar_ValueChanged(object sender, MouseEventArgs e)
+        {
+            UpdateTimeRangeValues();
+        }
+
+        private void TxtTimeRangeMin_TextChanged(object sender, EventArgs e)
+        {
+            if (!uint.TryParse(TxtTimeRangeMin.Text, out uint newMinRange))
+            {
+                if (!PBoxMinRangeError.Visible)
+                {
+                    PBoxMinRangeError.Visible = true;
+                    toolTip1.SetToolTip(PBoxMinRangeError, "Unable to parse to uin32");
+                }
+                TxtTimeRangeMin.BackColor = Color.LightSalmon;
+                return;
+            }
+
+            if (newMinRange >= TimeRangeTrackBar.RangeMaximum)
+            {
+                if (!PBoxMinRangeError.Visible)
+                {
+                    PBoxMinRangeError.Visible = true;
+                    toolTip1.SetToolTip(PBoxMinRangeError, "Min range can't exceed max range.");
+                }
+                TxtTimeRangeMin.BackColor = Color.LightSalmon;
+                return;
+            }
+
+            if (newMinRange < TimeRangeTrackBar.BarMinimum)
+            {
+                if (!PBoxMinRangeError.Visible)
+                {
+                    PBoxMinRangeError.Visible = true;
+                    toolTip1.SetToolTip(PBoxMinRangeError, "Min range can't be smaller than minimum start time.");
+                }
+                TxtTimeRangeMin.BackColor = Color.LightSalmon;
+                return;
+            }
+
+            if (PBoxMinRangeError.Visible)
+                PBoxMinRangeError.Visible = false;
+
+            TxtTimeRangeMin.BackColor = Color.LightGreen;
+            TimeRangeTrackBar.RangeMinimum = newMinRange;
+        }
+
+        private void TxtTimeRangeMax_TextChanged(object sender, EventArgs e)
+        {
+            if (!uint.TryParse(TxtTimeRangeMax.Text, out uint newMaxRange))
+            {
+                if (!PBoxMaxRangeError.Visible)
+                {
+                    PBoxMaxRangeError.Visible = true;
+                    toolTip1.SetToolTip(PBoxMaxRangeError, "Unable to parse to uin32");
+                }
+                TxtTimeRangeMax.BackColor = Color.LightSalmon;
+                return;
+            }
+
+            if (newMaxRange <= TimeRangeTrackBar.RangeMinimum)
+            {
+                if (!PBoxMaxRangeError.Visible)
+                {
+                    PBoxMaxRangeError.Visible = true;
+                    toolTip1.SetToolTip(PBoxMinRangeError, "Max range can't be smaller than min range.");
+                }
+                TxtTimeRangeMax.BackColor = Color.LightSalmon;
+                return;
+            }
+
+            if (newMaxRange > TimeRangeTrackBar.BarMaximum)
+            {
+                if (!PBoxMaxRangeError.Visible)
+                {
+                    PBoxMaxRangeError.Visible = true;
+                    toolTip1.SetToolTip(PBoxMinRangeError, "Max range can't be greater than maximum end time.");
+                }
+                TxtTimeRangeMax.BackColor = Color.LightSalmon;
+                return;
+            }
+
+            if (PBoxMaxRangeError.Visible)
+                PBoxMaxRangeError.Visible = false;
+
+            TxtTimeRangeMax.BackColor = Color.LightGreen;
+            TimeRangeTrackBar.RangeMaximum = newMaxRange;
+        }
+
+        private void BtnApplyTimeRangeFilter_Click(object sender, EventArgs e)
+        {
+            if (PBoxMaxRangeError.Visible || PBoxMinRangeError.Visible)
+            {
+                MessageBox.Show("You have range errors.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            TimeRangeMinFilter = (uint)TimeRangeTrackBar.RangeMinimum;
+            TimeRangeMaxFilter = (uint)TimeRangeTrackBar.RangeMaximum;
+            RefreshFiltering();
+        }
+
+        private void ObjectFiltersListView_MouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            if (!(ObjectFiltersListView.SelectedObject is Filter filter))
+                return;
+
+            using (ObjectSelectionDlg dlg = new ObjectSelectionDlg(filter, TimeRangeMinFilter, TimeRangeMaxFilter))
+            {
+                if (dlg.ShowDialog() != DialogResult.OK)
+                    return;
+
+                ObjectFiltersListView.RefreshObject(filter);
+                TxtFilter.Text = string.Empty;
+
+                if (filter.Enabled)
+                    EnqueueFiltering();
+            }
+        }
+
+        private void TStripObectFilterBtnAdd_Click(object sender, EventArgs e)
+        {
+            var newFilter = new Filter();
+            DataHolder.AddFilter(newFilter);
+            ObjectFiltersListView.AddObject(newFilter);
+        }
+
+        private void TStripObectFilterBtnRemove_Click(object sender, EventArgs e)
+        {
+            bool removed = false;
+            foreach (var filter in ObjectFiltersListView.SelectedObjects.OfType<Filter>())
+            {
+                DataHolder.RemoveFilter(filter);
+                ObjectFiltersListView.RemoveObject(filter);
+                removed = true;
+            }
+
+            if (removed)
+                EnqueueFiltering();
+        }
+
+        private void ObjectFiltersListView_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (ObjectFiltersListView.SelectedObject is Filter filter)
+            {
+                SplitEventsAndDesc.Panel2Collapsed = true;
+                SplitEventsAndDesc.Panel1Collapsed = false;
+                EventTypeFilterListView.SetObjects(filter.EventTypeFilter.Values);
+            }
+            else
+            {
+                            SplitEventsAndDesc.Panel2Collapsed = false;
+            SplitEventsAndDesc.Panel1Collapsed = true;  
+                EventTypeFilterListView.ClearObjects();
             }
         }
     }

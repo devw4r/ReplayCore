@@ -8,6 +8,7 @@
 #include "../World/ReplayMgr.h"
 #include "../World/WorldServer.h"
 #include "../World/ScriptMaker.h"
+#include "../Dependencies//include/zlib/zlib.h"
 
 #pragma comment(lib,"WS2_32")
 
@@ -121,6 +122,7 @@ void GUIServer::ResetClientData()
 void GUIServer::SetupOpcodeHandlers()
 {
     m_opcodeHandlers[CMSG_REQUEST_EVENT_DATA] = &GUIServer::HandleRequestEventData;
+    m_opcodeHandlers[CMSG_REQUEST_EVENT_DESCRIPTION] = &GUIServer::HandleRequestEventDescription;
     m_opcodeHandlers[CMSG_CHAT_COMMAND] = &GUIServer::HandleChatCommand;
     m_opcodeHandlers[CMSG_GOTO_GUID] = &GUIServer::HandleGoToGuid;
     m_opcodeHandlers[CMSG_MAKE_SCRIPT] = &GUIServer::HandleMakeScript;
@@ -157,6 +159,9 @@ void GUIServer::SendEventTypesList()
     buffer << uint32(sReplayMgr.GetLastEventTime());
     packetSize += sizeof(uint32);
 
+    buffer << uint32(sReplayMgr.GetSniffedEventsCount());
+    packetSize += sizeof(uint32);
+
     buffer << uint32(MAX_EVENT_TYPE);
     packetSize += sizeof(uint32);
 
@@ -175,7 +180,37 @@ void GUIServer::SendEventTypesList()
     assert(packetSize <= MAX_PACKET_SIZE);
 
     buffer.put<uint16>(sizePos, packetSize);
-    send(m_guiSocket, (const char*)buffer.contents(), buffer.size(), 0);
+
+    SendPacket(buffer, "SMSG_EVENT_TYPE_LIST");
+}
+
+void GUIServer::SendPacket(ByteBuffer& buffer, std::string opcode)
+{
+    size_t pSize = buffer.wpos();  // use real used data size
+    ByteBuffer outBuffer;
+    uint32 destsize = compressBound(pSize);
+    outBuffer.resize(destsize + sizeof(uint32));
+    outBuffer.put<uint32>(0, pSize);
+
+    PacketCompressor::Compress(const_cast<uint8*>(outBuffer.contents()) + sizeof(uint32), &destsize, (void*)buffer.contents(), pSize);
+    if (destsize == 0)
+        return;
+
+    outBuffer.resize(destsize + sizeof(uint32));
+    outBuffer.put<uint32>(0, destsize);
+
+    printf("[GUI] %s Sending %u bytes of data.\n", opcode.c_str(), outBuffer.size());
+    send(m_guiSocket, (const char*)outBuffer.contents(), outBuffer.size(), 0);
+}
+
+void GUIServer::HandleRequestEventDescription(ByteBuffer& buffer)
+{
+    uint32 sniffedEventId;
+    buffer >> sniffedEventId;
+
+    std::string description;
+    sReplayMgr.GetEventDescription(sniffedEventId, description);
+    SendEventDescription(sniffedEventId, description);
 }
 
 void GUIServer::HandleRequestEventData(ByteBuffer& buffer)
@@ -212,11 +247,24 @@ void GUIServer::HandleRequestEventData(ByteBuffer& buffer)
     SendEventDataList(eventsList);
 }
 
+void GUIServer::SendEventDescription(uint32 sniffedEventId, std::string const& description)
+{
+    ByteBuffer buffer;
+    buffer << uint16(sizeof(uint8) + sizeof(uint32) + description.size() + sizeof(uint8));
+    buffer << uint8(SMSG_EVENT_DESCRIPTION);
+    buffer << sniffedEventId;
+    buffer << description;
+
+    SendPacket(buffer, "SMSG_EVENT_DESCRIPTION");
+}
+
 void GUIServer::SendEventDataList(std::vector<std::pair<uint64, std::shared_ptr<SniffedEvent>>> const& eventsList)
 {
     uint32 eventsWrittenTotal = 0;
+    std::string opcodeStr = "SMSG_EVENT_DATA_LIST";
+
     while (eventsWrittenTotal < eventsList.size())
-    {
+    {       
         ByteBuffer buffer;
         uint32 sizePos = buffer.wpos();
         buffer << uint16(0);
@@ -242,8 +290,7 @@ void GUIServer::SendEventDataList(std::vector<std::pair<uint64, std::shared_ptr<
                 sizeof(uint64) + // unit time ms
                 sizeof(uint64) + // source guid
                 sizeof(uint64) + // target guid
-                shortDescription.size() + sizeof(uint8) +
-                longDescription.size() + sizeof(uint8);
+                shortDescription.size() + sizeof(uint8);
 
             if (sizeof(uint16) /*headerSize*/ + packetSize + neededSpace >= MAX_PACKET_SIZE)
                 break;
@@ -254,24 +301,24 @@ void GUIServer::SendEventDataList(std::vector<std::pair<uint64, std::shared_ptr<
             buffer << uint64(itr.second->GetSourceGuid().GetRawValue());
             buffer << uint64(itr.second->GetTargetGuid().GetRawValue());
             buffer << shortDescription;
-            buffer << longDescription;
             packetSize += neededSpace;
             eventsWritten++;
             eventsWrittenTotal++;
         }
 
-        printf("[GUI] Sending %u bytes of data.\n", buffer.size());
         buffer.put<uint16>(sizePos, packetSize);
         buffer.put<uint32>(countPos, eventsWritten);
-        send(m_guiSocket, (const char*)buffer.contents(), buffer.size(), 0);
+
+        SendPacket(buffer, opcodeStr);
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
-    ByteBuffer buffer;
-    buffer << uint16(sizeof(uint8));
-    buffer << uint8(SMSG_EVENT_DATA_END);
-    send(m_guiSocket, (const char*)buffer.contents(), buffer.size(), 0);
+    ByteBuffer endbuffer;
+    endbuffer << uint16(sizeof(uint8));
+    endbuffer << uint8(SMSG_EVENT_DATA_END);
+
+    SendPacket(endbuffer, "SMSG_EVENT_DATA_END");
     printf("[GUI] Finished sending %u events.\n", eventsWrittenTotal);
 }
 
