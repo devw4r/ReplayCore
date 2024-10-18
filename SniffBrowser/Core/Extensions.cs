@@ -199,6 +199,10 @@ namespace SniffBrowser.Core
 
         // SniffedEvent
 
+        /// <summary>
+        /// Extract Object names from short descriptions.
+        /// Any change on short descriptions at ReplayCore will most likely break this. 
+        /// </summary>
         public static string GetObjectGuidName(this SniffedEvent e, bool source)
         {
             var objectGuid = source ? e.SourceGuid : e.TargetGuid;
@@ -207,91 +211,104 @@ namespace SniffBrowser.Core
                 return string.Empty;
 
             var objectHighType = objectGuid.GetHighType();
-            var eventType = (SniffedEventType)e.EventType;
+            var eventType = e.EventType;
             if (objectHighType == HighGuid.TRANSPORT)
                 return "Transport";
 
-            var typeName = objectHighType.ToString();
-            if (objectHighType == HighGuid.DYNAMICOBJECT)
-                typeName = "DynObject";
+            var objectType = objectGuid.GetObjectType();
 
-            switch (eventType)
+            var typeName = objectType.ToString();
+            switch(objectHighType)
             {
-                case SniffedEventType.SE_WORLDOBJECT_CREATE1:
-                case SniffedEventType.SE_WORLDOBJECT_CREATE2:
-                case SniffedEventType.SE_UNIT_UPDATE_SPEED:
-                case SniffedEventType.SE_UNIT_CLIENTSIDE_MOVEMENT:
-                case SniffedEventType.SE_UNIT_SERVERSIDE_MOVEMENT:
-                case SniffedEventType.SE_PLAY_SOUND:
-                case SniffedEventType.SE_SPELL_CAST_START:
-                case SniffedEventType.SE_UNIT_ATTACK_STOP:
-                case SniffedEventType.SE_UNIT_ATTACK_START:
-                case SniffedEventType.SE_UNIT_ATTACK_LOG:
-                case SniffedEventType.SE_UNIT_UPDATE_GUID_VALUE:
-                case SniffedEventType.SE_SPELL_CAST_GO:
-                case SniffedEventType.SE_UNIT_UPDATE_SCALE:
-                case SniffedEventType.SE_CREATURE_THREAT_UPDATE:
-                case SniffedEventType.SE_WORLDOBJECT_DESTROY:
-                case SniffedEventType.SE_UNIT_UPDATE_ENTRY:
-                case SniffedEventType.SE_UNIT_UPDATE_EMOTE_STATE:
-                case SniffedEventType.SE_UNIT_UPDATE_DISPLAY_ID:
-                case SniffedEventType.SE_UNIT_UPDATE_MOUNT:
-                case SniffedEventType.SE_UNIT_UPDATE_FACTION:
-                case SniffedEventType.SE_UNIT_UPDATE_LEVEL:
-                case SniffedEventType.SE_UNIT_UPDATE_AURA_STATE:
-                case SniffedEventType.SE_UNIT_UPDATE_STAND_STATE:
-                case SniffedEventType.SE_UNIT_UPDATE_VIS_FLAGS:
-                case SniffedEventType.SE_UNIT_UPDATE_ANIM_TIER:
-                case SniffedEventType.SE_UNIT_UPDATE_SHEATH_STATE:
-                case SniffedEventType.SE_UNIT_UPDATE_PVP_FLAGS:
-                case SniffedEventType.SE_UNIT_UPDATE_SHAPESHIFT_FORM:
-                case SniffedEventType.SE_UNIT_UPDATE_NPC_FLAGS:
-                case SniffedEventType.SE_UNIT_UPDATE_UNIT_FLAGS:
-                case SniffedEventType.SE_UNIT_UPDATE_UNIT_FLAGS2:
-                case SniffedEventType.SE_UNIT_UPDATE_DYNAMIC_FLAGS:
-                case SniffedEventType.SE_UNIT_UPDATE_CURRENT_HEALTH:
-                case SniffedEventType.SE_UNIT_UPDATE_MAX_HEALTH:
-                case SniffedEventType.SE_UNIT_UPDATE_POWER_TYPE:
-                case SniffedEventType.SE_UNIT_UPDATE_CURRENT_POWER:
-                case SniffedEventType.SE_UNIT_UPDATE_MAX_POWER:
-                case SniffedEventType.SE_UNIT_UPDATE_BOUNDING_RADIUS:
-                case SniffedEventType.SE_UNIT_UPDATE_COMBAT_REACH:
-                case SniffedEventType.SE_UNIT_UPDATE_MAIN_HAND_ATTACK_TIME:
-                case SniffedEventType.SE_UNIT_UPDATE_OFF_HAND_ATTACK_TIME:
-                case SniffedEventType.SE_UNIT_UPDATE_CHANNEL_SPELL:
-                case SniffedEventType.SE_GAMEOBJECT_UPDATE_FLAGS:
-                case SniffedEventType.SE_GAMEOBJECT_UPDATE_STATE:
-                case SniffedEventType.SE_GAMEOBJECT_UPDATE_ARTKIT:
-                case SniffedEventType.SE_GAMEOBJECT_UPDATE_ANIMPROGRESS:
-                case SniffedEventType.SE_GAMEOBJECT_UPDATE_DYNAMIC_FLAGS:
-                case SniffedEventType.SE_GAMEOBJECT_UPDATE_PATH_PROGRESS:
-                case SniffedEventType.SE_UNIT_UPDATE_AURAS:
-                case SniffedEventType.SE_CREATURE_TEXT:
-                case SniffedEventType.SE_CREATURE_THREAT_CLEAR:
-                case SniffedEventType.SE_CREATURE_THREAT_REMOVE:
-                case SniffedEventType.SE_CREATURE_EQUIPMENT_UPDATE:
-                case SniffedEventType.SE_PLAYER_EQUIPMENT_UPDATE:
-                case SniffedEventType.SE_PLAYER_MINIMAP_PING:
-                case SniffedEventType.SE_GAMEOBJECT_CUSTOM_ANIM:
-                case SniffedEventType.SE_PLAY_SPELL_VISUAL_KIT:
-                case SniffedEventType.SE_SPELL_CAST_FAILED:
-                case SniffedEventType.SE_GAMEOBJECT_DESPAWN_ANIM:
-                    var endStr = objectGuid.HasEntry() ? " (Entry" : " (Guid";
-                    var start = e.ShortDescription.IndexOf(typeName) + typeName.Length + 1;
-                    var end = e.ShortDescription.IndexOf(endStr);
-                    var name = e.ShortDescription.Substring(start, end - start);
-                    return name;
-                case SniffedEventType.SE_PLAYER_CHAT:
-                    start = e.ShortDescription.IndexOf(" [") + 2;
-                    if (start == -1 && e.ShortDescription.StartsWith("["))
-                        start = 0;
-                    end = e.ShortDescription.IndexOf("]", Math.Max(0, start - 2));
-                    return e.ShortDescription.Substring(start, end - start);
-                case SniffedEventType.SE_LOGIN:
-                    start = e.ShortDescription.IndexOf("with ") + 5;
-                    end = e.ShortDescription.LastIndexOf(".");
-                    return e.ShortDescription.Substring(start, end - start);
+                case HighGuid.DYNAMICOBJECT:
+                    typeName = "DynObject";
+                    break;
+                case HighGuid.PET:
+                    typeName = "Pet";
+                    break;
             }
+
+            try
+            {
+                switch (eventType)
+                {
+                    case SniffedEventType.SE_WORLDOBJECT_CREATE1:
+                    case SniffedEventType.SE_WORLDOBJECT_CREATE2:
+                    case SniffedEventType.SE_UNIT_UPDATE_SPEED:
+                    case SniffedEventType.SE_UNIT_CLIENTSIDE_MOVEMENT:
+                    case SniffedEventType.SE_UNIT_SERVERSIDE_MOVEMENT:
+                    case SniffedEventType.SE_PLAY_SOUND:
+                    case SniffedEventType.SE_SPELL_CAST_START:
+                    case SniffedEventType.SE_UNIT_ATTACK_STOP:
+                    case SniffedEventType.SE_UNIT_ATTACK_START:
+                    case SniffedEventType.SE_UNIT_ATTACK_LOG:
+                    case SniffedEventType.SE_UNIT_UPDATE_GUID_VALUE:
+                    case SniffedEventType.SE_SPELL_CAST_GO:
+                    case SniffedEventType.SE_UNIT_UPDATE_SCALE:
+                    case SniffedEventType.SE_CREATURE_THREAT_UPDATE:
+                    case SniffedEventType.SE_WORLDOBJECT_DESTROY:
+                    case SniffedEventType.SE_UNIT_UPDATE_ENTRY:
+                    case SniffedEventType.SE_UNIT_UPDATE_EMOTE_STATE:
+                    case SniffedEventType.SE_UNIT_UPDATE_DISPLAY_ID:
+                    case SniffedEventType.SE_UNIT_UPDATE_MOUNT:
+                    case SniffedEventType.SE_UNIT_UPDATE_FACTION:
+                    case SniffedEventType.SE_UNIT_UPDATE_LEVEL:
+                    case SniffedEventType.SE_UNIT_UPDATE_AURA_STATE:
+                    case SniffedEventType.SE_UNIT_UPDATE_STAND_STATE:
+                    case SniffedEventType.SE_UNIT_UPDATE_VIS_FLAGS:
+                    case SniffedEventType.SE_UNIT_UPDATE_ANIM_TIER:
+                    case SniffedEventType.SE_UNIT_UPDATE_SHEATH_STATE:
+                    case SniffedEventType.SE_UNIT_UPDATE_PVP_FLAGS:
+                    case SniffedEventType.SE_UNIT_UPDATE_SHAPESHIFT_FORM:
+                    case SniffedEventType.SE_UNIT_UPDATE_NPC_FLAGS:
+                    case SniffedEventType.SE_UNIT_UPDATE_UNIT_FLAGS:
+                    case SniffedEventType.SE_UNIT_UPDATE_UNIT_FLAGS2:
+                    case SniffedEventType.SE_UNIT_UPDATE_DYNAMIC_FLAGS:
+                    case SniffedEventType.SE_UNIT_UPDATE_CURRENT_HEALTH:
+                    case SniffedEventType.SE_UNIT_UPDATE_MAX_HEALTH:
+                    case SniffedEventType.SE_UNIT_UPDATE_POWER_TYPE:
+                    case SniffedEventType.SE_UNIT_UPDATE_CURRENT_POWER:
+                    case SniffedEventType.SE_UNIT_UPDATE_MAX_POWER:
+                    case SniffedEventType.SE_UNIT_UPDATE_BOUNDING_RADIUS:
+                    case SniffedEventType.SE_UNIT_UPDATE_COMBAT_REACH:
+                    case SniffedEventType.SE_UNIT_UPDATE_MAIN_HAND_ATTACK_TIME:
+                    case SniffedEventType.SE_UNIT_UPDATE_OFF_HAND_ATTACK_TIME:
+                    case SniffedEventType.SE_UNIT_UPDATE_CHANNEL_SPELL:
+                    case SniffedEventType.SE_GAMEOBJECT_UPDATE_FLAGS:
+                    case SniffedEventType.SE_GAMEOBJECT_UPDATE_STATE:
+                    case SniffedEventType.SE_GAMEOBJECT_UPDATE_ARTKIT:
+                    case SniffedEventType.SE_GAMEOBJECT_UPDATE_ANIMPROGRESS:
+                    case SniffedEventType.SE_GAMEOBJECT_UPDATE_DYNAMIC_FLAGS:
+                    case SniffedEventType.SE_GAMEOBJECT_UPDATE_PATH_PROGRESS:
+                    case SniffedEventType.SE_UNIT_UPDATE_AURAS:
+                    case SniffedEventType.SE_CREATURE_TEXT:
+                    case SniffedEventType.SE_CREATURE_THREAT_CLEAR:
+                    case SniffedEventType.SE_CREATURE_THREAT_REMOVE:
+                    case SniffedEventType.SE_CREATURE_EQUIPMENT_UPDATE:
+                    case SniffedEventType.SE_PLAYER_EQUIPMENT_UPDATE:
+                    case SniffedEventType.SE_PLAYER_MINIMAP_PING:
+                    case SniffedEventType.SE_GAMEOBJECT_CUSTOM_ANIM:
+                    case SniffedEventType.SE_PLAY_SPELL_VISUAL_KIT:
+                    case SniffedEventType.SE_SPELL_CAST_FAILED:
+                    case SniffedEventType.SE_GAMEOBJECT_DESPAWN_ANIM:
+                        var endStr = objectGuid.HasEntry() ? " (Entry" : " (Guid";
+                        var start = e.ShortDescription.IndexOf(typeName) + typeName.Length + 1;
+                        var end = e.ShortDescription.IndexOf(endStr);
+                        var name = e.ShortDescription.Substring(start, end - start);
+                        return name;
+                    case SniffedEventType.SE_PLAYER_CHAT:
+                        start = e.ShortDescription.IndexOf(" [") + 2;
+                        if (start == -1 && e.ShortDescription.StartsWith("["))
+                            start = 0;
+                        end = e.ShortDescription.IndexOf("]", Math.Max(0, start - 2));
+                        return e.ShortDescription.Substring(start, end - start);
+                    case SniffedEventType.SE_LOGIN:
+                        start = e.ShortDescription.IndexOf("with ") + 5;
+                        end = e.ShortDescription.LastIndexOf(".");
+                        return e.ShortDescription.Substring(start, end - start);
+                }
+            }
+            catch (Exception) { }
 
             return string.Empty;
         }

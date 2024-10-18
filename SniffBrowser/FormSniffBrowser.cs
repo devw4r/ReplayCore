@@ -1204,6 +1204,15 @@ namespace SniffBrowser
         private void FormSniffBrowser_FormClosing(object sender, FormClosingEventArgs e)
         {
             IsClosing = true;
+
+            if (NetworkClient != null) // UnHook.
+            {
+                NetworkClient.OnConnectSuccess -= OnConnectSuccess;
+                NetworkClient.OnPacketReceived -= OnPacketReceived;
+                NetworkClient.OnReadError -= OnReadError;
+                NetworkClient.OnWriteError -= OnWriteError;
+            }
+
             try { NetworkClient?.Dispose(); } catch { }
             try { NetworkJobsCancellationToken?.Cancel(false); } catch { }
             try { FilteringTimer?.Dispose(); } catch { }
