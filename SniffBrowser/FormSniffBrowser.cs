@@ -177,7 +177,9 @@ namespace SniffBrowser
 
                 ImageGetter = delegate (object o)
                 {
-                    if (!(o is SniffedEvent sEvent) || !DataHolder.TryGetImageIndexForEventType((uint)sEvent.EventType, out int imgIndx))
+                    var sEvent = o as SniffedEvent;
+                    int imgIndx;
+                    if (sEvent == null || !DataHolder.TryGetImageIndexForEventType((uint)sEvent.EventType, out imgIndx))
                         return null;
                     return imgIndx;
                 },
@@ -192,8 +194,10 @@ namespace SniffBrowser
             {
                 AspectGetter = delegate (object o)
                 {
-                    if (!(o is SniffedEvent sEvent))
+                    var sEvent = o as SniffedEvent;
+                    if (sEvent == null)
                         return null;
+
                     return sEvent.FormatTimeString(SelectedTimeType, SelectedTimeDisplay);
                 },
 
@@ -205,8 +209,10 @@ namespace SniffBrowser
             {
                 AspectGetter = delegate (object o)
                 {
-                    if (!(o is SniffedEvent sEvent))
+                    var sEvent = o as SniffedEvent;
+                    if (sEvent == null)
                         return null;
+
                     return sEvent.ShortDescription;
                 },
 
@@ -230,7 +236,8 @@ namespace SniffBrowser
 
             EventTypeFilterListView.BooleanCheckStateGetter = delegate (object o)
             {
-                if (!(o is SniffedEventTypeFilterEntry sEventType))
+                SniffedEventTypeFilterEntry sEventType = o as SniffedEventTypeFilterEntry;
+                if (sEventType == null)
                     return false;
 
                 return sEventType.Enabled;
@@ -238,10 +245,12 @@ namespace SniffBrowser
 
             EventTypeFilterListView.BooleanCheckStatePutter = delegate (object o, bool newValue)
             {
-                if (!(ObjectFiltersListView.SelectedObject is Filter filter))
+                Filter filter = ObjectFiltersListView.SelectedObject as Filter;
+                if (filter == null)
                     return false;
 
-                if (!(o is SniffedEventTypeFilterEntry sEventType))
+                SniffedEventTypeFilterEntry sEventType = o as SniffedEventTypeFilterEntry;
+                if (sEventType == null)
                     return false;
 
                 if (newValue && filter.EnableSniffedEventType(sEventType.FilterType))
@@ -256,7 +265,8 @@ namespace SniffBrowser
             {
                 AspectGetter = delegate (object o)
                 {
-                    if (!(o is SniffedEventTypeFilterEntry sEventType))
+                    SniffedEventTypeFilterEntry sEventType = o as SniffedEventTypeFilterEntry;
+                    if (sEventType == null)
                         return false;
 
                     return sEventType.Enabled;
@@ -275,10 +285,12 @@ namespace SniffBrowser
             {
                 AspectGetter = delegate (object o)
                 {
-                    if (!(o is SniffedEventTypeFilterEntry sEventType))
-                        return false;
+                    SniffedEventTypeFilterEntry sEventType = o as SniffedEventTypeFilterEntry;
+                    if (sEventType == null)
+                        return null;
 
-                    if (DataHolder.TryGetEventTypeEntryById((uint)sEventType.FilterType, out var eventType))
+                    EventTypeEntry eventType;
+                    if (DataHolder.TryGetEventTypeEntryById((uint)sEventType.FilterType, out eventType))
                         return eventType.EventName;
 
                     return sEventType.FilterType.ToString().Replace("SE_", string.Empty);
@@ -307,7 +319,8 @@ namespace SniffBrowser
 
             ObjectFiltersListView.BooleanCheckStateGetter = delegate (object o)
             {
-                if (!(o is Filter filter))
+                Filter filter = o as Filter;
+                if (filter == null)
                     return false;
 
                 return filter.Enabled;
@@ -315,7 +328,8 @@ namespace SniffBrowser
 
             ObjectFiltersListView.BooleanCheckStatePutter = delegate (object o, bool newValue)
             {
-                if (!(o is Filter filter))
+                Filter filter = o as Filter;
+                if (filter == null)
                     return false;
 
                 if (filter.Enabled != newValue)
@@ -331,7 +345,8 @@ namespace SniffBrowser
             {
                 AspectGetter = delegate (object o)
                 {
-                    if (!(o is Filter filter))
+                    Filter filter = o as Filter;
+                    if (filter == null)
                         return false;
 
                     return filter.Enabled;
@@ -349,7 +364,8 @@ namespace SniffBrowser
             {
                 AspectGetter = delegate (object o)
                 {
-                    if (!(o is Filter filter))
+                    Filter filter = o as Filter;
+                    if (filter == null)
                         return null;
 
                     if (filter.Guid.IsEmpty)
@@ -367,7 +383,8 @@ namespace SniffBrowser
             {
                 AspectGetter = delegate (object o)
                 {
-                    if (!(o is Filter filter))
+                    Filter filter = o as Filter;
+                    if (filter == null)
                         return null;
 
                     if (filter.Guid.IsEmpty)
@@ -385,7 +402,8 @@ namespace SniffBrowser
             {
                 AspectGetter = delegate (object o)
                 {
-                    if (!(o is Filter filter))
+                    Filter filter = o as Filter;
+                    if (filter == null)
                         return null;
 
                     if (!filter.Guid.HasEntry())
@@ -403,7 +421,8 @@ namespace SniffBrowser
             {
                 AspectGetter = delegate (object o)
                 {
-                    if (!(o is Filter filter))
+                    Filter filter = o as Filter;
+                    if (filter == null)
                         return null;
 
                     if (filter.ObjectTypeFilter != ObjectTypeFilter.Any)
@@ -430,7 +449,8 @@ namespace SniffBrowser
 
         private void EventsListView_FormatRow(object sender, FormatRowEventArgs e)
         {
-            if (!(e.Model is SniffedEvent sEvent))
+            SniffedEvent sEvent = e.Model as SniffedEvent;
+            if (sEvent == null)
                 return;
 
             switch (SelectedRowColor)
@@ -456,7 +476,8 @@ namespace SniffBrowser
         #region ContextMenuStrip
         private void OnRemoveSource(object sender, EventArgs e)
         {
-            if (!(eventsListView.SelectedObject is SniffedEvent sEvent))
+            SniffedEvent sEvent = eventsListView.SelectedObject as SniffedEvent;
+            if (sEvent == null)
             {
                 MessageBox.Show("No selected event.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
@@ -483,7 +504,8 @@ namespace SniffBrowser
 
         private void OnRemoveTarget(object sender, EventArgs e)
         {
-            if (!(eventsListView.SelectedObject is SniffedEvent sEvent))
+            SniffedEvent sEvent = eventsListView.SelectedObject as SniffedEvent;
+            if (sEvent == null)
             {
                 MessageBox.Show("No selected event.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
@@ -510,7 +532,8 @@ namespace SniffBrowser
 
         private void OnRemoveType(object sender, EventArgs e)
         {
-            if (!(eventsListView.SelectedObject is SniffedEvent sEvent))
+            SniffedEvent sEvent = eventsListView.SelectedObject as SniffedEvent;
+            if (sEvent == null)
             {
                 MessageBox.Show("No selected event.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
@@ -531,7 +554,8 @@ namespace SniffBrowser
 
         private void OnRemoveRow(object sender, EventArgs e)
         {
-            if (!(eventsListView.SelectedObject is SniffedEvent sEvent))
+            SniffedEvent sEvent = eventsListView.SelectedObject as SniffedEvent;
+            if (sEvent == null)
             {
                 MessageBox.Show("No selected event.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
@@ -545,7 +569,8 @@ namespace SniffBrowser
 
         private void OnCopyEventTarget(object sender, EventArgs e)
         {
-            if (!(eventsListView.SelectedObject is SniffedEvent sEvent))
+            SniffedEvent sEvent = eventsListView.SelectedObject as SniffedEvent;
+            if (sEvent == null)
             {
                 MessageBox.Show("No selected event.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
@@ -562,7 +587,8 @@ namespace SniffBrowser
 
         private void OnCopyEventSource(object sender, EventArgs e)
         {
-            if (!(eventsListView.SelectedObject is SniffedEvent sEvent))
+            SniffedEvent sEvent = eventsListView.SelectedObject as SniffedEvent;
+            if (sEvent == null)
             {
                 MessageBox.Show("No selected event.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
@@ -579,7 +605,8 @@ namespace SniffBrowser
 
         private void OnCopyEventTime(object sender, EventArgs e)
         {
-            if (!(eventsListView.SelectedObject is SniffedEvent sEvent))
+            SniffedEvent sEvent = eventsListView.SelectedObject as SniffedEvent;
+            if (sEvent == null)
             {
                 MessageBox.Show("No selected event.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
@@ -678,7 +705,8 @@ namespace SniffBrowser
 
         private void OnPacketReceived(object sender, EventArgs e)
         {
-            if (sender is byte[] bytes)
+            byte[] bytes = sender as byte[];
+            if (bytes != null)
                 PendingNetworkJobs.Add(bytes);
         }
 
@@ -707,8 +735,11 @@ namespace SniffBrowser
                         BeginInvoke(new Action(() =>
                         {
                             using (eventDescriptionData)
-                                if (eventsListView.SelectedObject is SniffedEvent sEvent && sEvent.UUID.Equals(eventDescriptionData.SniffedEventId))
+                            {
+                                var sEvent = eventsListView.SelectedObject as SniffedEvent;
+                                if (sEvent != null && sEvent.UUID.Equals(eventDescriptionData.SniffedEventId))
                                     TxtEventDescription.Text += Environment.NewLine + eventDescriptionData.LongDescription;
+                            }
                         }));
                         break;
                 }
@@ -758,13 +789,15 @@ namespace SniffBrowser
 
             EventTypeFilterListView.ModelFilter = new ModelFilter(o =>
             {
-                if (!(o is SniffedEventTypeFilterEntry sType))
+                var sType = o as SniffedEventTypeFilterEntry;
+                if (sType == null)
                     return false;
 
                 if (cmbEventTypes.SelectedIndex == 0)
                     return true; // All.
 
-                if (DataHolder.TryGetEventTypeEntryById((uint)sType.FilterType, out var eventType))
+                EventTypeEntry eventType;
+                if (DataHolder.TryGetEventTypeEntryById((uint)sType.FilterType, out eventType))
                     if (eventType.EventTypeFilter != (EventTypeFilter)cmbEventTypes.SelectedIndex)
                         return false;
 
@@ -790,41 +823,6 @@ namespace SniffBrowser
                 return TickFilters.Any(filter => filter.Evaluate(sEvent));
 
             return true;
-        }
-
-        private void LstEventFilters_ItemChecked(object sender, ItemCheckedEventArgs e)
-        {
-            //if (lstObjectFilters.SelectedItems.Count == 0)
-            //    return;
-
-            //// Get the selected item.
-            //ListViewItem selectedObject = lstObjectFilters.SelectedItems[0];
-            //HashSet<uint> selectedEventTypeList = selectedObject.Tag as HashSet<uint>;
-
-            //ListViewItem item = e.Item;
-            //uint eventId = (uint)item.Tag;
-
-            //if (item.Checked)
-            //    selectedEventTypeList.Add(eventId);
-            //else
-            //    selectedEventTypeList.Remove(eventId);
-
-            //if (selectedEventTypeList.Count == DataHolder.GetEventCount())
-            //    selectedObject.SubItems[3].Text = "All";
-            //else
-            //{
-            //    string eventTypesList = "";
-            //    foreach (var eventType in selectedEventTypeList)
-            //    {
-            //        if (!String.IsNullOrEmpty(eventTypesList))
-            //            eventTypesList += ", ";
-
-            //        eventTypesList += eventType.ToString();
-            //    }
-            //    selectedObject.SubItems[3].Text = eventTypesList;
-            //}
-
-            //EnqueueFiltering();
         }
 
         private void CmbRowColors_SelectedIndexChanged(object sender, EventArgs e)
@@ -857,7 +855,8 @@ namespace SniffBrowser
             TxtTimeRangeMin.Text = TimeRangeTrackBar.RangeMinimum.ToString();
             TxtTimeRangeMax.Text = TimeRangeTrackBar.RangeMaximum.ToString();
 
-            if (uint.TryParse(TxtTimeRangeMin.Text, out uint unixTime))
+            uint unixTime;
+            if (uint.TryParse(TxtTimeRangeMin.Text, out unixTime))
             {
                 DateTime dt = Utility.GetDateTimeFromUnixTime(unixTime);
                 LblRangeMinDt.Text = dt.ToString();
@@ -872,7 +871,8 @@ namespace SniffBrowser
 
         private void UpdateStartTime()
         {
-            if (uint.TryParse(TStripTxtStartTimeValue.Text, out uint startUnixTime))
+            uint startUnixTime;
+            if (uint.TryParse(TStripTxtStartTimeValue.Text, out startUnixTime))
             {
                 DateTime startTime = Utility.GetDateTimeFromUnixTime(startUnixTime);
                 TStripStartTimeLblFormat.Text = startTime.ToString();
@@ -881,7 +881,8 @@ namespace SniffBrowser
 
         private void UpdateEndTime()
         {
-            if (uint.TryParse(TStripTxtEndTimeValue.Text, out uint endUnixTime))
+            uint endUnixTime;
+            if (uint.TryParse(TStripTxtEndTimeValue.Text, out endUnixTime))
             {
                 DateTime endTime = Utility.GetDateTimeFromUnixTime(endUnixTime);
                 TStripEndTimeLblFormat.Text = endTime.ToString();
@@ -890,7 +891,8 @@ namespace SniffBrowser
 
         private void BtnClear_Click(object sender, EventArgs e)
         {
-            if (ObjectFiltersListView.SelectedObject is Filter filter)
+            Filter filter = ObjectFiltersListView.SelectedObject as Filter;
+            if (filter != null)
             {
                 foreach (SniffedEventTypeFilterEntry visibleFilter in EventTypeFilterListView.FilteredObjects)
                     filter.DisableSniffedEventType(visibleFilter.FilterType);
@@ -901,7 +903,8 @@ namespace SniffBrowser
 
         private void BtnSelectAll_Click(object sender, EventArgs e)
         {
-            if (ObjectFiltersListView.SelectedObject is Filter filter)
+            Filter filter = ObjectFiltersListView.SelectedObject as Filter;
+            if (filter != null)
             {
                 foreach (SniffedEventTypeFilterEntry visibleFilter in EventTypeFilterListView.FilteredObjects)
                     filter.EnableSniffedEventType(visibleFilter.FilterType);
@@ -923,7 +926,8 @@ namespace SniffBrowser
             SelectedTimeType = cmbTimeType.SelectedIndex;
             SelectedTimeDisplay = cmbTimeDisplay.SelectedIndex;
 
-            if (eventsListView.Objects is ArrayList sniffedEvents && sniffedEvents.Count > 0)
+            ArrayList sniffedEvents = eventsListView.Objects as ArrayList;
+            if (sniffedEvents != null && sniffedEvents.Count > 0)
                 eventsListView.RefreshObjects(new SniffedEvent[1] { (SniffedEvent)sniffedEvents[0] });
         }
 
@@ -939,7 +943,12 @@ namespace SniffBrowser
 
         private void SendRawCommand_Click(object sender, EventArgs e)
         {
-            if (!(sender is Control ctrl) || !(ctrl.Tag is string command))
+            Control ctrl = sender as Control;
+            if (ctrl == null)
+                return;
+
+            string command = ctrl.Tag as string;
+            if (string.IsNullOrEmpty(command))
                 return;
 
             SendChatCommand(command);
@@ -956,7 +965,8 @@ namespace SniffBrowser
 
         private void BtnReplayJumpToEventTime_Click(object sender, EventArgs e)
         {
-            if (!(eventsListView.SelectedObject is SniffedEvent sniffedEvent))
+            SniffedEvent sniffedEvent = eventsListView.SelectedObject as SniffedEvent;
+            if (sniffedEvent == null)
             {
                 MessageBox.Show("No event selected.");
                 return;
@@ -975,7 +985,8 @@ namespace SniffBrowser
 
         private void BtnReplayJumpToEventSource_Click(object sender, EventArgs e)
         {
-            if (!(eventsListView.SelectedObject is SniffedEvent sniffedEvent))
+            SniffedEvent sniffedEvent = eventsListView.SelectedObject as SniffedEvent;
+            if (sniffedEvent == null)
             {
                 MessageBox.Show("No event selected.");
                 return;
@@ -992,7 +1003,8 @@ namespace SniffBrowser
 
         private void BtnReplayJumpToEventTarget_Click(object sender, EventArgs e)
         {
-            if (!(eventsListView.SelectedObject is SniffedEvent sniffedEvent))
+            SniffedEvent sniffedEvent = eventsListView.SelectedObject as SniffedEvent;
+            if (sniffedEvent == null)
             {
                 MessageBox.Show("No event selected.");
                 return;
@@ -1021,7 +1033,8 @@ namespace SniffBrowser
 
         private void HandleMakeScriptOrWaypoints(bool makeWaypoints)
         {
-            if (!(eventsListView.SelectedObjects is ArrayList sniffedEvents) || sniffedEvents.Count == 0)
+            ArrayList sniffedEvents = eventsListView.SelectedObjects as ArrayList;
+            if (sniffedEvents == null || sniffedEvents.Count == 0)
             {
                 MessageBox.Show("No event selected.");
                 return;
@@ -1123,7 +1136,8 @@ namespace SniffBrowser
         private int PreviousSelection = 0;
         private void EventsListView_SelectionChanged(object sender, EventArgs e)
         {
-            if (!(eventsListView.SelectedObject is SniffedEvent sniffedEvent))
+            SniffedEvent sniffedEvent = eventsListView.SelectedObject as SniffedEvent;
+            if (sniffedEvent == null)
             {
                 TBtnJumpEventSource.Enabled = false;
                 TBtnJumpEventTarget.Enabled = false;
@@ -1133,9 +1147,8 @@ namespace SniffBrowser
                 return;
             }
 
-            if(PreviousSelection != eventsListView.SelectedIndex)
+            if (PreviousSelection != eventsListView.SelectedIndex)
             {
-                Console.WriteLine("Trigger");
                 PreviousSelection = eventsListView.SelectedIndex;
                 SplitEventsAndDesc.Panel2Collapsed = false;
                 SplitEventsAndDesc.Panel1Collapsed = true;
@@ -1145,7 +1158,7 @@ namespace SniffBrowser
             TBtnJumpEventTarget.Enabled = true;
             TBtnJumpEventTime.Enabled = true;
             TxtEventDescription.Text = sniffedEvent.ToString();
-             
+
             NetworkClient?.RequestEventDescription(sniffedEvent.UUID);
         }
 
@@ -1182,7 +1195,8 @@ namespace SniffBrowser
             {
                 eventsListView.ModelFilter = new ModelFilter(o =>
                 {
-                    if (!(o is SniffedEvent sEvent))
+                    SniffedEvent sEvent = o as SniffedEvent;
+                    if (sEvent == null)
                         return false;
 
                     if (!IsVisibleSniffedEvent(sEvent))
@@ -1238,7 +1252,8 @@ namespace SniffBrowser
 
         private void TxtTimeRangeMin_TextChanged(object sender, EventArgs e)
         {
-            if (!uint.TryParse(TxtTimeRangeMin.Text, out uint newMinRange))
+            uint newMinRange;
+            if (!uint.TryParse(TxtTimeRangeMin.Text, out newMinRange))
             {
                 if (!PBoxMinRangeError.Visible)
                 {
@@ -1280,7 +1295,8 @@ namespace SniffBrowser
 
         private void TxtTimeRangeMax_TextChanged(object sender, EventArgs e)
         {
-            if (!uint.TryParse(TxtTimeRangeMax.Text, out uint newMaxRange))
+            uint newMaxRange;
+            if (!uint.TryParse(TxtTimeRangeMax.Text, out newMaxRange))
             {
                 if (!PBoxMaxRangeError.Visible)
                 {
@@ -1335,7 +1351,8 @@ namespace SniffBrowser
 
         private void ObjectFiltersListView_MouseDoubleClick(object sender, MouseEventArgs e)
         {
-            if (!(ObjectFiltersListView.SelectedObject is Filter filter))
+            Filter filter = ObjectFiltersListView.SelectedObject as Filter;
+            if (filter == null)
                 return;
 
             using (ObjectSelectionDlg dlg = new ObjectSelectionDlg(filter, TimeRangeMinFilter, TimeRangeMaxFilter))
@@ -1374,7 +1391,8 @@ namespace SniffBrowser
 
         private void ObjectFiltersListView_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (ObjectFiltersListView.SelectedObject is Filter filter)
+            Filter filter = ObjectFiltersListView.SelectedObject as Filter;
+            if (filter != null)
             {
                 SplitEventsAndDesc.Panel2Collapsed = true;
                 SplitEventsAndDesc.Panel1Collapsed = false;
@@ -1382,8 +1400,8 @@ namespace SniffBrowser
             }
             else
             {
-                            SplitEventsAndDesc.Panel2Collapsed = false;
-            SplitEventsAndDesc.Panel1Collapsed = true;  
+                SplitEventsAndDesc.Panel2Collapsed = false;
+                SplitEventsAndDesc.Panel1Collapsed = true;
                 EventTypeFilterListView.ClearObjects();
             }
         }

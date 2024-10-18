@@ -31,19 +31,20 @@ namespace SniffBrowser.Core
 
             result.UnixTime = (uint)(result.EventTime / 1000);
 
+            ObjectGuid outGuid;
             var sourceGuid = packet.ReadUInt64();
             if (sourceGuid == 0)
                 result.SourceGuid = ObjectGuid.Empty;
-            else if (DataHolder.ObjectGuidMap.TryGetValue(sourceGuid, out ObjectGuid sGuid))
-                result.SourceGuid = sGuid;
+            else if (DataHolder.ObjectGuidMap.TryGetValue(sourceGuid, out outGuid))
+                result.SourceGuid = outGuid;
             else
                 result.SourceGuid = new ObjectGuid(sourceGuid);
 
             var targetGuid = packet.ReadUInt64();
             if (targetGuid == 0)
                 result.TargetGuid = ObjectGuid.Empty;
-            else if (DataHolder.ObjectGuidMap.TryGetValue(targetGuid, out ObjectGuid tGuid))
-                result.TargetGuid = tGuid;
+            else if (DataHolder.ObjectGuidMap.TryGetValue(targetGuid, out outGuid))
+                result.TargetGuid = outGuid;
             else
                 result.TargetGuid = new ObjectGuid(targetGuid);
 

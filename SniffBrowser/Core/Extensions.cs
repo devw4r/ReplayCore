@@ -122,7 +122,8 @@ namespace SniffBrowser.Core
 
         public static void UpdateFilteredEventsTimes(this FastObjectListView folv)
         {
-            if (!(folv.FilteredObjects is ArrayList sniffedEvents) || sniffedEvents.Count == 0)
+            ArrayList sniffedEvents = folv.FilteredObjects as ArrayList;
+            if (sniffedEvents == null || sniffedEvents.Count == 0)
                 return;
 
             SniffedEvent previousEvent = null;
@@ -147,7 +148,8 @@ namespace SniffBrowser.Core
 
         public static void LightRefreshObjects(this FastObjectListView folv)
         {
-            if (folv.Objects is ArrayList sniffedEvents && sniffedEvents.Count > 0)
+            ArrayList sniffedEvents = folv.Objects as ArrayList;
+            if (sniffedEvents != null && sniffedEvents.Count > 0)
                 folv.RefreshObjects(new SniffedEvent[1] { (SniffedEvent)sniffedEvents[0] });
         }
 
@@ -313,14 +315,16 @@ namespace SniffBrowser.Core
 
         public static EventTypeFilter GetEventTypeFilter(this SniffedEvent e)
         {
-            if (DataHolder.TryGetEventTypeEntryById((uint)e.EventType, out var eventType))
+            EventTypeEntry eventType;
+            if (DataHolder.TryGetEventTypeEntryById((uint)e.EventType, out eventType))
                 return eventType.EventTypeFilter;
             return EventTypeFilter.All;
         }
 
         public static string GetEventTypeName(this SniffedEvent e)
         {
-            if (DataHolder.TryGetEventTypeEntryById((uint)e.EventType, out var eventType))
+            EventTypeEntry eventType;
+            if (DataHolder.TryGetEventTypeEntryById((uint)e.EventType, out eventType))
                 return eventType.EventName;
             return string.Empty;
         }

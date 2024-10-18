@@ -93,14 +93,16 @@ namespace SniffBrowser
 
         private void BtnConnect_Click(object sender, EventArgs e)
         {
-            if(!IPAddress.TryParse(txtIpAddress.Text, out IPAddress _))
+            IPAddress outIp;
+            if (!IPAddress.TryParse(txtIpAddress.Text, out outIp))
             {
                 MessageBox.Show("Invalid ip.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 DialogResult = DialogResult.None;
                 return;
             }
-            
-            if(!int.TryParse(txtPort.Text, out int port))
+
+            int port;
+            if(!int.TryParse(txtPort.Text, out port))
             {
                 MessageBox.Show("Invalid port.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 DialogResult = DialogResult.None;

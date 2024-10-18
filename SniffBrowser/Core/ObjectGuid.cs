@@ -50,7 +50,8 @@ namespace SniffBrowser.Core
 
         public override bool Equals(object obj)
         {
-            return obj is ObjectGuid guid && Equals(guid);
+            var oGuid = obj as ObjectGuid;
+            return oGuid != null && Equals(oGuid);
         }
 
         public bool Equals(ObjectGuid other)

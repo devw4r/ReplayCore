@@ -138,7 +138,8 @@ namespace SniffBrowser.Core
             if (EventsTypeList == null)
                 return false;
 
-            if (!EventsTypeList.EventEntries.TryGetValue(eventType, out var eventEntry))
+            EventTypeEntry eventEntry;
+            if (!EventsTypeList.EventEntries.TryGetValue(eventType, out eventEntry))
                 return false;
 
             value = eventEntry.ImageIndex;

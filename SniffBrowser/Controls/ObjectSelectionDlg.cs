@@ -26,7 +26,8 @@ namespace SniffBrowser.Controls
             {
                 AspectGetter = delegate (object o)
                 {
-                    if (!(o is ObjectGuid oGuid) || string.IsNullOrEmpty(oGuid.ObjectName))
+                    var oGuid = o as ObjectGuid;
+                    if (oGuid == null || string.IsNullOrEmpty(oGuid.ObjectName))
                         return "n/a";
 
                     return oGuid.ObjectName;
@@ -40,7 +41,8 @@ namespace SniffBrowser.Controls
             {
                 AspectGetter = delegate (object o)
                 {
-                    if (!(o is ObjectGuid oGuid))
+                    var oGuid = o as ObjectGuid;
+                    if (oGuid == null)
                         return null;
 
                     return oGuid.GetObjectType();
@@ -55,7 +57,8 @@ namespace SniffBrowser.Controls
             {
                 AspectGetter = delegate (object o)
                 {
-                    if (!(o is ObjectGuid oGuid))
+                    var oGuid = o as ObjectGuid;
+                    if (oGuid == null)
                         return null;
 
                     return oGuid.GetHighType();
@@ -69,7 +72,8 @@ namespace SniffBrowser.Controls
             {
                 AspectGetter = delegate (object o)
                 {
-                    if (!(o is ObjectGuid oGuid))
+                    var oGuid = o as ObjectGuid;
+                    if (oGuid == null)
                         return null;
 
                     return oGuid.GetCounter();
@@ -83,8 +87,9 @@ namespace SniffBrowser.Controls
             {
                 AspectGetter = delegate (object o)
                 {
-                    if (!(o is ObjectGuid oGuid))
-                        return 0;
+                    var oGuid = o as ObjectGuid;
+                    if (oGuid == null)
+                        return null;
 
                     if (!oGuid.HasEntry())
                         return 0;
@@ -132,11 +137,12 @@ namespace SniffBrowser.Controls
 
             var tfilter = new ModelFilter(o =>
             {
-                if (!(o is ObjectGuid oGuid))
+                var oGuid = o as ObjectGuid;
+                if (oGuid == null)
                     return false;
 
                 // If any of the events linked to this object are within the current time frame, display.
-                foreach(var sEvent in oGuid.SniffedEvents)
+                foreach (var sEvent in oGuid.SniffedEvents)
                     if (sEvent.UnixTime >= RangeMin && sEvent.UnixTime <= RangeMax)
                         return true;
 
@@ -165,7 +171,8 @@ namespace SniffBrowser.Controls
             if (!PnlList.Enabled)
                 return;
 
-            if (availableObjectsListView.SelectedObject is ObjectGuid oGuid)
+            var oGuid = availableObjectsListView.SelectedObject as ObjectGuid;
+            if (oGuid != null)
             {
                 Filter.Guid = oGuid;
                 Filter.ObjectTypeFilter = ObjectTypeFilter.Any;
@@ -183,7 +190,8 @@ namespace SniffBrowser.Controls
             }
             else
             {
-                if (availableObjectsListView.SelectedObject is ObjectGuid oGuid)
+                var oGuid = availableObjectsListView.SelectedObject as ObjectGuid;
+                if (oGuid != null)
                 {
                     Filter.Guid = oGuid;
                     Filter.ObjectTypeFilter = ObjectTypeFilter.Any;

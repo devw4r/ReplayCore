@@ -76,10 +76,8 @@ namespace SniffBrowser.Network
             try
             {
                 var sent = ClientSocket?.EndSend(ar);
-                if (ar.AsyncState is ByteBuffer b)
-                {
-                    b?.Dispose();
-                }
+                var b = ar.AsyncState as ByteBuffer;
+                b?.Dispose();
             }
             catch (Exception ex)
             {
@@ -132,7 +130,8 @@ namespace SniffBrowser.Network
                 }
 
                 // Next packet.
-                ClientSocket.BeginReceive(headerBuffer, 0, headerBuffer.Length, SocketFlags.None, out SocketError err, ReceiveCallback, headerBuffer);
+                SocketError err;
+                ClientSocket.BeginReceive(headerBuffer, 0, headerBuffer.Length, SocketFlags.None, out err, ReceiveCallback, headerBuffer);
             }
             // Avoid Pokemon exception handling in cases like these.
             catch (Exception ex)
