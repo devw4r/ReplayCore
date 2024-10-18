@@ -6,8 +6,6 @@ using System.Collections.Generic;
 
 using BrightIdeasSoftware;
 using ICSharpCode.SharpZipLib.Zip.Compression.Streams;
-using System.Xml.Linq;
-using System.CodeDom;
 
 namespace SniffBrowser.Core
 {
@@ -15,7 +13,7 @@ namespace SniffBrowser.Core
     {
         // Compression
 
-        private static readonly byte[] DecompressBuffer = new byte[ushort.MaxValue];
+        private static readonly byte[] DecompressBuffer = new byte[262140];
         public static byte[] Decompress(this byte[] buffer)
         {
             using (MemoryStream memory = new MemoryStream(buffer))

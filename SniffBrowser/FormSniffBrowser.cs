@@ -687,7 +687,6 @@ namespace SniffBrowser
         {
             using (ByteBuffer packet = new ByteBuffer(buffer))
             {
-                var payloadSize = packet.ReadUInt16(); // Payload Size.
                 GUIOpcode opcode = (GUIOpcode)packet.ReadUInt8();
                 switch (opcode)
                 {

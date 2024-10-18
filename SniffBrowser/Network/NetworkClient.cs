@@ -102,7 +102,7 @@ namespace SniffBrowser.Network
                 {
                     // Header.
                     case sizeof(uint):
-                        packetSize = BitConverter.ToUInt32(headerBuffer, 0);
+                        packetSize = BitConverter.ToUInt16(headerBuffer, 0);
 
                         if (packetSize == 0)
                         {
