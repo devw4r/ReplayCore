@@ -37,6 +37,7 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Design" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -89,6 +90,99 @@
     </Compile>
     <Compile Include="Core\ObjectGuid.cs" />
     <Compile Include="Network\NetworkClient.cs" />
+    <Compile Include="Olv\CellEditing\CellEditKeyEngine.cs" />
+    <Compile Include="Olv\CellEditing\CellEditors.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Olv\CellEditing\EditorRegistry.cs" />
+    <Compile Include="Olv\DataListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Olv\DataTreeListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Olv\DragDrop\DragSource.cs" />
+    <Compile Include="Olv\DragDrop\DropSink.cs" />
+    <Compile Include="Olv\DragDrop\OLVDataObject.cs" />
+    <Compile Include="Olv\FastDataListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Olv\FastObjectListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Olv\Filtering\Cluster.cs" />
+    <Compile Include="Olv\Filtering\ClusteringStrategy.cs" />
+    <Compile Include="Olv\Filtering\ClustersFromGroupsStrategy.cs" />
+    <Compile Include="Olv\Filtering\DateTimeClusteringStrategy.cs" />
+    <Compile Include="Olv\Filtering\FilterMenuBuilder.cs" />
+    <Compile Include="Olv\Filtering\Filters.cs" />
+    <Compile Include="Olv\Filtering\FlagClusteringStrategy.cs" />
+    <Compile Include="Olv\Filtering\ICluster.cs" />
+    <Compile Include="Olv\Filtering\IClusteringStrategy.cs" />
+    <Compile Include="Olv\Filtering\TextMatchFilter.cs" />
+    <Compile Include="Olv\Implementation\Attributes.cs" />
+    <Compile Include="Olv\Implementation\Comparers.cs" />
+    <Compile Include="Olv\Implementation\DataSourceAdapter.cs" />
+    <Compile Include="Olv\Implementation\Delegates.cs" />
+    <Compile Include="Olv\Implementation\Enums.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Olv\Implementation\Events.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Olv\Implementation\GroupingParameters.cs" />
+    <Compile Include="Olv\Implementation\Groups.cs" />
+    <Compile Include="Olv\Implementation\Munger.cs" />
+    <Compile Include="Olv\Implementation\NativeMethods.cs" />
+    <Compile Include="Olv\Implementation\NullableDictionary.cs" />
+    <Compile Include="Olv\Implementation\OLVListItem.cs" />
+    <Compile Include="Olv\Implementation\OLVListSubItem.cs" />
+    <Compile Include="Olv\Implementation\OlvListViewHitTestInfo.cs" />
+    <Compile Include="Olv\Implementation\TreeDataSourceAdapter.cs" />
+    <Compile Include="Olv\Implementation\VirtualGroups.cs" />
+    <Compile Include="Olv\Implementation\VirtualListDataSource.cs" />
+    <Compile Include="Olv\ObjectListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Olv\ObjectListView.DesignTime.cs" />
+    <Compile Include="Olv\OLVColumn.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Olv\Rendering\Adornments.cs" />
+    <Compile Include="Olv\Rendering\Decorations.cs" />
+    <Compile Include="Olv\Rendering\Overlays.cs" />
+    <Compile Include="Olv\Rendering\Renderers.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Olv\Rendering\Styles.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Olv\Rendering\TreeRenderer.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Olv\SubControls\GlassPanelForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Olv\SubControls\HeaderControl.cs" />
+    <Compile Include="Olv\SubControls\ToolStripCheckedListBox.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Olv\SubControls\ToolTipControl.cs" />
+    <Compile Include="Olv\TreeListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Olv\Utilities\ColumnSelectionForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Olv\Utilities\ColumnSelectionForm.Designer.cs">
+      <DependentUpon>ColumnSelectionForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Olv\Utilities\Generator.cs" />
+    <Compile Include="Olv\Utilities\OLVExporter.cs" />
+    <Compile Include="Olv\Utilities\TypedObjectListView.cs" />
+    <Compile Include="Olv\VirtualObjectListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Core\SniffedEvent.cs" />
@@ -96,6 +190,65 @@
     <Compile Include="Core\Vector2.cs" />
     <Compile Include="Core\Vector3.cs" />
     <Compile Include="Core\Vector4.cs" />
+    <Compile Include="SharpZLib\BZip2\BZip2.cs" />
+    <Compile Include="SharpZLib\BZip2\BZip2Constants.cs" />
+    <Compile Include="SharpZLib\BZip2\BZip2Exception.cs" />
+    <Compile Include="SharpZLib\BZip2\BZip2InputStream.cs" />
+    <Compile Include="SharpZLib\BZip2\BZip2OutputStream.cs" />
+    <Compile Include="SharpZLib\Checksums\Adler32.cs" />
+    <Compile Include="SharpZLib\Checksums\CRC32.cs" />
+    <Compile Include="SharpZLib\Checksums\IChecksum.cs" />
+    <Compile Include="SharpZLib\Checksums\StrangeCRC.cs" />
+    <Compile Include="SharpZLib\Core\FileSystemScanner.cs" />
+    <Compile Include="SharpZLib\Core\INameTransform.cs" />
+    <Compile Include="SharpZLib\Core\IScanFilter.cs" />
+    <Compile Include="SharpZLib\Core\NameFilter.cs" />
+    <Compile Include="SharpZLib\Core\PathFilter.cs" />
+    <Compile Include="SharpZLib\Core\StreamUtils.cs" />
+    <Compile Include="SharpZLib\Core\WindowsPathUtils.cs" />
+    <Compile Include="SharpZLib\Encryption\PkzipClassic.cs" />
+    <Compile Include="SharpZLib\Encryption\ZipAESStream.cs" />
+    <Compile Include="SharpZLib\Encryption\ZipAESTransform.cs" />
+    <Compile Include="SharpZLib\GZip\GZIPConstants.cs" />
+    <Compile Include="SharpZLib\GZip\GZipException.cs" />
+    <Compile Include="SharpZLib\GZip\GzipInputStream.cs" />
+    <Compile Include="SharpZLib\GZip\GzipOutputStream.cs" />
+    <Compile Include="SharpZLib\Main.cs" />
+    <Compile Include="SharpZLib\SharpZipBaseException.cs" />
+    <Compile Include="SharpZLib\Tar\InvalidHeaderException.cs" />
+    <Compile Include="SharpZLib\Tar\TarArchive.cs" />
+    <Compile Include="SharpZLib\Tar\TarBuffer.cs" />
+    <Compile Include="SharpZLib\Tar\TarEntry.cs" />
+    <Compile Include="SharpZLib\Tar\TarException.cs" />
+    <Compile Include="SharpZLib\Tar\TarHeader.cs" />
+    <Compile Include="SharpZLib\Tar\TarInputStream.cs" />
+    <Compile Include="SharpZLib\Tar\TarOutputStream.cs" />
+    <Compile Include="SharpZLib\Zip\Compression\Deflater.cs" />
+    <Compile Include="SharpZLib\Zip\Compression\DeflaterConstants.cs" />
+    <Compile Include="SharpZLib\Zip\Compression\DeflaterEngine.cs" />
+    <Compile Include="SharpZLib\Zip\Compression\DeflaterHuffman.cs" />
+    <Compile Include="SharpZLib\Zip\Compression\DeflaterPending.cs" />
+    <Compile Include="SharpZLib\Zip\Compression\Inflater.cs" />
+    <Compile Include="SharpZLib\Zip\Compression\InflaterDynHeader.cs" />
+    <Compile Include="SharpZLib\Zip\Compression\InflaterHuffmanTree.cs" />
+    <Compile Include="SharpZLib\Zip\Compression\PendingBuffer.cs" />
+    <Compile Include="SharpZLib\Zip\Compression\Streams\DeflaterOutputStream.cs" />
+    <Compile Include="SharpZLib\Zip\Compression\Streams\InflaterInputStream.cs" />
+    <Compile Include="SharpZLib\Zip\Compression\Streams\OutputWindow.cs" />
+    <Compile Include="SharpZLib\Zip\Compression\Streams\StreamManipulator.cs" />
+    <Compile Include="SharpZLib\Zip\FastZip.cs" />
+    <Compile Include="SharpZLib\Zip\IEntryFactory.cs" />
+    <Compile Include="SharpZLib\Zip\WindowsNameTransform.cs" />
+    <Compile Include="SharpZLib\Zip\ZipConstants.cs" />
+    <Compile Include="SharpZLib\Zip\ZipEntry.cs" />
+    <Compile Include="SharpZLib\Zip\ZipEntryFactory.cs" />
+    <Compile Include="SharpZLib\Zip\ZipException.cs" />
+    <Compile Include="SharpZLib\Zip\ZipExtraData.cs" />
+    <Compile Include="SharpZLib\Zip\ZipFile.cs" />
+    <Compile Include="SharpZLib\Zip\ZipHelperStream.cs" />
+    <Compile Include="SharpZLib\Zip\ZipInputStream.cs" />
+    <Compile Include="SharpZLib\Zip\ZipNameTransform.cs" />
+    <Compile Include="SharpZLib\Zip\ZipOutputStream.cs" />
     <EmbeddedResource Include="Controls\ObjectSelectionDlg.resx">
       <DependentUpon>ObjectSelectionDlg.cs</DependentUpon>
     </EmbeddedResource>
@@ -108,6 +261,10 @@
     <EmbeddedResource Include="FormSniffBrowser.resx">
       <DependentUpon>FormSniffBrowser.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Olv\Utilities\ColumnSelectionForm.resx">
+      <DependentUpon>ColumnSelectionForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
@@ -118,6 +275,7 @@
       <DependentUpon>Resources.resx</DependentUpon>
       <DesignTime>True</DesignTime>
     </Compile>
+    <None Include="Olv\olv-keyfile.snk" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
@@ -402,18 +560,21 @@
     <None Include="Resources\12595_bulb_idea_light_icon.png" />
     <None Include="Resources\8666693_search_icon.png" />
     <None Include="Resources\299045_sign_error_icon.png" />
+    <None Include="Olv\CustomDictionary.xml" />
+    <None Include="Olv\Resources\clear-filter.png" />
+    <None Include="Olv\Resources\filter-icons3.png" />
+    <None Include="Olv\Resources\filter.png" />
+    <None Include="Olv\Resources\sort-ascending.png" />
+    <None Include="Olv\Resources\sort-descending.png" />
+    <None Include="ObjectListView\Resources\clear-filter.png" />
+    <None Include="ObjectListView\Resources\coffee.jpg" />
+    <None Include="ObjectListView\Resources\filter.png" />
+    <None Include="ObjectListView\Resources\filter-icons3.png" />
+    <None Include="ObjectListView\Resources\sort-ascending.png" />
+    <None Include="ObjectListView\Resources\sort-descending.png" />
     <Content Include="SniffBrowserIco.ico" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="ObjectListView\ObjectListView2012.csproj">
-      <Project>{18feda0c-d147-4286-b39a-01204808106a}</Project>
-      <Name>ObjectListView2012</Name>
-    </ProjectReference>
-    <ProjectReference Include="SharpZipLib\ICSharpCode.SharpZLib.csproj">
-      <Project>{0e7413ff-eb9e-4714-acf2-be3a6a7b2ffd}</Project>
-      <Name>ICSharpCode.SharpZLib</Name>
-    </ProjectReference>
-  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

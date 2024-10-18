@@ -203,6 +203,16 @@ namespace SniffBrowser.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap clear_filter {
+            get {
+                object obj = ResourceManager.GetObject("clear_filter", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap client_creature_interact {
             get {
                 object obj = ResourceManager.GetObject("client_creature_interact", resourceCulture);
@@ -273,6 +283,16 @@ namespace SniffBrowser.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap coffee {
+            get {
+                object obj = ResourceManager.GetObject("coffee", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap creature_equipment_update {
             get {
                 object obj = ResourceManager.GetObject("creature_equipment_update", resourceCulture);
@@ -296,6 +316,26 @@ namespace SniffBrowser.Properties {
         internal static System.Drawing.Bitmap faction_standing_update {
             get {
                 object obj = ResourceManager.GetObject("faction_standing_update", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap filter {
+            get {
+                object obj = ResourceManager.GetObject("filter", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap filter_icons3 {
+            get {
+                object obj = ResourceManager.GetObject("filter_icons3", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -576,6 +616,26 @@ namespace SniffBrowser.Properties {
         internal static System.Drawing.Bitmap skip_time_arrow_icon {
             get {
                 object obj = ResourceManager.GetObject("skip_time_arrow_icon", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap sort_ascending {
+            get {
+                object obj = ResourceManager.GetObject("sort_ascending", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap sort_descending {
+            get {
+                object obj = ResourceManager.GetObject("sort_descending", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
