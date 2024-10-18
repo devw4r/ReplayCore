@@ -91,9 +91,7 @@
     <Compile Include="Core\ObjectGuid.cs" />
     <Compile Include="Network\NetworkClient.cs" />
     <Compile Include="Olv\CellEditing\CellEditKeyEngine.cs" />
-    <Compile Include="Olv\CellEditing\CellEditors.cs">
-      <SubType>Component</SubType>
-    </Compile>
+    <Compile Include="Olv\CellEditing\CellEditors.cs" />
     <Compile Include="Olv\CellEditing\EditorRegistry.cs" />
     <Compile Include="Olv\DataListView.cs">
       <SubType>Component</SubType>
@@ -190,6 +188,11 @@
     <Compile Include="Core\Vector2.cs" />
     <Compile Include="Core\Vector3.cs" />
     <Compile Include="Core\Vector4.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
     <Compile Include="SharpZLib\BZip2\BZip2.cs" />
     <Compile Include="SharpZLib\BZip2\BZip2Constants.cs" />
     <Compile Include="SharpZLib\BZip2\BZip2Exception.cs" />
@@ -267,14 +270,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
       <SubType>Designer</SubType>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-    <Compile Include="Properties\Resources.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Resources.resx</DependentUpon>
-      <DesignTime>True</DesignTime>
-    </Compile>
     <None Include="Olv\olv-keyfile.snk" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
@@ -566,12 +564,12 @@
     <None Include="Olv\Resources\filter.png" />
     <None Include="Olv\Resources\sort-ascending.png" />
     <None Include="Olv\Resources\sort-descending.png" />
-    <None Include="ObjectListView\Resources\clear-filter.png" />
-    <None Include="ObjectListView\Resources\coffee.jpg" />
-    <None Include="ObjectListView\Resources\filter.png" />
-    <None Include="ObjectListView\Resources\filter-icons3.png" />
-    <None Include="ObjectListView\Resources\sort-ascending.png" />
-    <None Include="ObjectListView\Resources\sort-descending.png" />
+    <None Include="Resources\coffee.jpg" />
+    <None Include="Resources\clear_filter.png" />
+    <None Include="Resources\filter.png" />
+    <None Include="Resources\filter_icons3.png" />
+    <None Include="Resources\sort_ascending.png" />
+    <None Include="Resources\sort_descending.png" />
     <Content Include="SniffBrowserIco.ico" />
   </ItemGroup>
   <ItemGroup />
